@@ -21,20 +21,18 @@ public class RFIDATTENDANCE {
         for(SerialPort eachComPort:allAvailableComPorts)
             System.out.println("List of all available serial ports: " + eachComPort.getDescriptivePortName());
         
-        firstAvailableComPort = allAvailableComPorts[0];
+        firstAvailableComPort = allAvailableComPorts[2];
         
         firstAvailableComPort.openPort();
 
         System.out.println("Opened the first available serial port: " + firstAvailableComPort.getDescriptivePortName()
         + firstAvailableComPort.getPortDescription() + "port is "+firstAvailableComPort.getSystemPortName());
 
-//        MyComPortListener listenerObject = new MyComPortListener();
-//        
-//        firstAvailableComPort.addDataListener(listenerObject); 
+
 
         SerialPort arduinoPort = null;
         for (SerialPort port : allAvailableComPorts) {
-            if (port.getSystemPortName().equals("COM3")) {
+            if (port.getSystemPortName().equals("COM7")) {
                 arduinoPort = port;
                 System.out.println("Connected");
                 break;
@@ -53,28 +51,26 @@ public class RFIDATTENDANCE {
             //System.out.println("looping");
             int bytesRead = arduinoPort.readBytes(buffer, buffer.length);
             if (bytesRead > 0) {
-                message = new String(buffer, 0, bytesRead);
-                if (message.trim().length() == 8){
+                String data = new String(buffer, 0, bytesRead);
+                 message += data.trim();
+                 //System.out.println("id is "+message);
+                 
+                 
+                if (message.length() == 8){
                 System.out.println("id is "+message);
+                message="";
+                
+                String messagee = "Hello, Arduino! TIYO JAVA";
+                    System.out.println(messagee.getBytes()+" length is"+ messagee.length());
+                arduinoPort.writeBytes(messagee.getBytes(), messagee.length());
                 }
-//                else{
-//                    System.out.println(" else id is "+message+" "+message.length());
-//                }
+                else if(message.length() > 8){
+                    message="";
+                }
+
             }
-            String newID = message.trim();
-            if (newID.length() == 8 && newID.equals("bb6f3125")) {
-            System.out.println("Welcome Keth Tacatani");
-            message = "";
         }
-        }
-        
-        
-        
-        // Close the serial port
-        //serialPort.closePort();
 
-
-        
     }
     
 }
