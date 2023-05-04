@@ -26,27 +26,192 @@ public class HomePanel extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        jPanel1 = new javax.swing.JPanel();
+        mainPanel = new javax.swing.JPanel();
+        ribbonPanel = new javax.swing.JPanel();
+        addEventBtn = new javax.swing.JButton();
+        recordsPanel = new javax.swing.JPanel();
+        eventLabel = new javax.swing.JLabel();
+        dateTimeLabel = new javax.swing.JLabel();
+        recordsTablePanel = new javax.swing.JPanel();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        recentRecordsTable = new javax.swing.JTable();
+        searchTF = new javax.swing.JTextField();
+        sortCB = new javax.swing.JComboBox<>();
+        statisticsPanel = new javax.swing.JPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
-        jPanel1.setForeground(new java.awt.Color(255, 255, 255));
-        jPanel1.setLayout(null);
+        mainPanel.setBackground(new java.awt.Color(204, 204, 204));
+        mainPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
+        mainPanel.setForeground(new java.awt.Color(255, 255, 255));
+
+        ribbonPanel.setBackground(new java.awt.Color(255, 255, 255));
+        ribbonPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
+
+        addEventBtn.setBackground(new java.awt.Color(255, 255, 255));
+        addEventBtn.setFont(new java.awt.Font("Tahoma", 0, 8)); // NOI18N
+        addEventBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_calendar_plus_50px.png"))); // NOI18N
+        addEventBtn.setText("Add Event");
+        addEventBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        addEventBtn.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        addEventBtn.setOpaque(false);
+        addEventBtn.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+
+        javax.swing.GroupLayout ribbonPanelLayout = new javax.swing.GroupLayout(ribbonPanel);
+        ribbonPanel.setLayout(ribbonPanelLayout);
+        ribbonPanelLayout.setHorizontalGroup(
+            ribbonPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ribbonPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(addEventBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 68, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        ribbonPanelLayout.setVerticalGroup(
+            ribbonPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(ribbonPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(addEventBtn, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+
+        recordsPanel.setBackground(new java.awt.Color(255, 255, 255));
+        recordsPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
+
+        eventLabel.setFont(new java.awt.Font("Tahoma", 0, 24)); // NOI18N
+        eventLabel.setText("Event: ");
+
+        dateTimeLabel.setFont(new java.awt.Font("Tahoma", 0, 24)); // NOI18N
+        dateTimeLabel.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        dateTimeLabel.setText("March 20, 2023 | 9:23 AM");
+
+        recordsTablePanel.setBackground(new java.awt.Color(255, 255, 255));
+        recordsTablePanel.setBorder(javax.swing.BorderFactory.createEtchedBorder());
+
+        recentRecordsTable.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        jScrollPane1.setViewportView(recentRecordsTable);
+
+        searchTF.setForeground(new java.awt.Color(204, 204, 204));
+        searchTF.setText("Search");
+        searchTF.setToolTipText("");
+
+        sortCB.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+
+        javax.swing.GroupLayout recordsTablePanelLayout = new javax.swing.GroupLayout(recordsTablePanel);
+        recordsTablePanel.setLayout(recordsTablePanelLayout);
+        recordsTablePanelLayout.setHorizontalGroup(
+            recordsTablePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(recordsTablePanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(recordsTablePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane1)
+                    .addGroup(recordsTablePanelLayout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(sortCB, javax.swing.GroupLayout.PREFERRED_SIZE, 101, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(searchTF, javax.swing.GroupLayout.PREFERRED_SIZE, 178, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap())
+        );
+        recordsTablePanelLayout.setVerticalGroup(
+            recordsTablePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(recordsTablePanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(recordsTablePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(searchTF, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(sortCB, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 456, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
+        );
+
+        javax.swing.GroupLayout recordsPanelLayout = new javax.swing.GroupLayout(recordsPanel);
+        recordsPanel.setLayout(recordsPanelLayout);
+        recordsPanelLayout.setHorizontalGroup(
+            recordsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(recordsPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(recordsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(recordsTablePanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(recordsPanelLayout.createSequentialGroup()
+                        .addComponent(eventLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 304, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 210, Short.MAX_VALUE)
+                        .addComponent(dateTimeLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 304, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap())
+        );
+        recordsPanelLayout.setVerticalGroup(
+            recordsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(recordsPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(recordsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(eventLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 44, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(dateTimeLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 44, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(recordsTablePanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+
+        statisticsPanel.setBackground(new java.awt.Color(255, 255, 255));
+        statisticsPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
+
+        javax.swing.GroupLayout statisticsPanelLayout = new javax.swing.GroupLayout(statisticsPanel);
+        statisticsPanel.setLayout(statisticsPanelLayout);
+        statisticsPanelLayout.setHorizontalGroup(
+            statisticsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 406, Short.MAX_VALUE)
+        );
+        statisticsPanelLayout.setVerticalGroup(
+            statisticsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 0, Short.MAX_VALUE)
+        );
+
+        javax.swing.GroupLayout mainPanelLayout = new javax.swing.GroupLayout(mainPanel);
+        mainPanel.setLayout(mainPanelLayout);
+        mainPanelLayout.setHorizontalGroup(
+            mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(mainPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(mainPanelLayout.createSequentialGroup()
+                        .addComponent(recordsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(statisticsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(ribbonPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
+        );
+        mainPanelLayout.setVerticalGroup(
+            mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(mainPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(ribbonPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(statisticsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(recordsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
+        );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, 1038, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, Short.MAX_VALUE))
+            .addComponent(mainPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, 730, Short.MAX_VALUE)
+            .addComponent(mainPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         pack();
+        setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
 
     /**
@@ -85,6 +250,17 @@ public class HomePanel extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JPanel jPanel1;
+    private javax.swing.JButton addEventBtn;
+    private javax.swing.JLabel dateTimeLabel;
+    private javax.swing.JLabel eventLabel;
+    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JPanel mainPanel;
+    private javax.swing.JTable recentRecordsTable;
+    private javax.swing.JPanel recordsPanel;
+    private javax.swing.JPanel recordsTablePanel;
+    private javax.swing.JPanel ribbonPanel;
+    private javax.swing.JTextField searchTF;
+    private javax.swing.JComboBox<String> sortCB;
+    private javax.swing.JPanel statisticsPanel;
     // End of variables declaration//GEN-END:variables
 }
