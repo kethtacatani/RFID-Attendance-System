@@ -1,0 +1,29 @@
+
+
+
+Display Recent Scanns
+
+
+Ribbon Buttons
+	Add Event
+	Manage Student Records
+		Search Students
+			Selectìon Mode
+			Update
+			Delete
+		Add Student
+	View Recent Events
+		Search Events	
+			Save Event Data
+	View Class Schedules
+		Drop Down for year Block
+		Edit Schedule
+	Settings 
+		Connection Settings
+			Port Selection
+				Auto Select Port
+		Date and Time Settings
+		Always on Top Option
+		
+	
+	
