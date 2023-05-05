@@ -12,6 +12,8 @@ Ribbon Buttons
 			Update
 			Delete
 		Add Student
+			Import CSV File Option
+			Add Manually 
 	View Recent Events
 		Search Events	
 			Save Event Data
