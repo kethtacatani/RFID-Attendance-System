@@ -1,10 +1,24 @@
 
 package rfid.attendance;
 
-import javax.swing.JDialog;
+
+import com.fazecast.jSerialComm.SerialPort;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.table.DefaultTableModel;
+import static rfid.attendance.RFIDATTENDANCE.arduinoPort;
 
 /**
  *
@@ -31,19 +45,90 @@ public class HomePanel extends javax.swing.JFrame {
   
     // </editor-fold>    
     
-   
+    ArrayList<String> scannedRFID = new ArrayList<>();
+    ArrayList<String> scanTime = new ArrayList<>();
+    
+    LocalDate currentDate;
+    LocalTime currentTime;
 
+    DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("YYYY-MM-dd");
+    DateTimeFormatter longDateFormatter = DateTimeFormatter.ofPattern("MMMM d, yyyy");
+    DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
+    String date;
+    String longDate;
+    String time;
+    
+    String event = "School Day";
+    String studentsInvolved = "All Students";
+    String attendanceStatus="";
+    int totalPresentCount = 0;
+    
+    Timer timer;
+    
+   
+    //RFIDATTENDANCE arduino;
     QueryProcessor qp;
     public HomePanel() {
         qp = new QueryProcessor();
         initComponents();
         displayRecentScans();
         displayManageStudentTable();
+        
+        eventLabel.setText("Event: "+event);
+        
+        timer = new Timer(30000, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // Update the time value
+                
+                currentDate = LocalDate.now();
+                currentTime = LocalTime.now();
+                date = currentDate.format(dateFormatter);
+                longDate = currentDate.format(longDateFormatter);
+                time = currentTime.format(timeFormatter);
+                
+                // Update the JLabel text
+                time = time.replaceAll("am", "AM").replaceAll("pm", "PM");
+                dateTimeLabel.setText(longDate+" | "+time );
+                System.out.println("updating "+longDate+" | "+time );
+            }
+        });
+        timer.setInitialDelay(0);
+        timer.start();
+        
+        
+        
+
+        // Start the timer
+        
+        
+    }
+    
+   
+    
+    public void executeArduinoWrite(String messagee) {
+        if (arduinoPort != null && arduinoPort.isOpen()) {
+            arduinoPort.writeBytes(messagee.getBytes(), messagee.length());
+            
+        }
+        
     }
     
     public void displayRecentScans(){
+       // "ID No.","Last Name","First Name","M.I.","Type","Time","Status"};
+        
+        String query = "SELECT `student_info`.`student_id`, `student_info`.`last_name`, `student_info`.`first_name`, LEFT(`middle_name`, 1) AS `first_letter1`,"
+                + "CASE WHEN time_out IS NULL THEN 'Time-in' ELSE 'Time-out' END AS time_status, TIME_FORMAT(`student_record`.`time_in`, '%h:%i %p') AS formatted_time_in,"
+                + "CASE WHEN `student_record`.`status` IS NULL THEN '' ELSE '"+attendanceStatus+"' END AS student_status FROM `student_record`, `student_info` WHERE `student_record`.`student_id` = `student_info`.`student_id`";
+        System.out.println(query);
+        tablerow = qp.getAllRecord(query);
         model = new DefaultTableModel(tablerow,tablecol);
         recentRecordsTable.setModel(model);
+        recentRecordsTable.getColumnModel().getColumn(0).setPreferredWidth(20);
+        recentRecordsTable.getColumnModel().getColumn(3).setPreferredWidth(5);
+        recentRecordsTable.getColumnModel().getColumn(5).setPreferredWidth(15);
+        recentRecordsTable.getColumnModel().getColumn(6).setPreferredWidth(15);
+        
     }
     public void displayManageStudentTable(){
         String searchQuery = "SELECT * FROM `student_info`"; 
@@ -53,6 +138,92 @@ public class HomePanel extends javax.swing.JFrame {
         manageStudentModel = new DefaultTableModel(manageStudentTablerow,manageStudentTablecol);
         manageStudentTable.setModel(manageStudentModel);
     }
+    
+    public void insertStudentAttendance(String rfidId){
+        String studentId, lastName, firstName, middleInit, type="Time-in",timeIn=time,timeOut= null, status, course, year, block;
+        String query = "Select * FROM student_info WHERE `rfid_id`= '"+rfidId+"'";
+        System.out.println("rf is "+rfidId);
+        String[] result=null;
+        try{
+            result = qp.getSpecificRow(query);
+        }
+        catch(Exception e){
+            
+        }
+        
+        if(result!=null){
+            System.out.println("String is "+Arrays.toString(result));
+            studentId = result[1];
+            lastName = result[4];
+            firstName= result[2];
+            middleInit = result[3].substring(0, 1);
+            status= null;
+            course = result[9];
+            year= result[8];
+            block= result[10];
+            String query1="";
+            System.out.println(scannedRFID.toString());
+            if (!scannedRFID.contains(rfidId)){
+                System.out.println("why");
+                type = "Time-in";
+                scannedRFID.add(rfidId);
+                scanTime.add(time);
+                query1 = "INSERT into `student_record` (`student_id`,`rfid_id`,`event`,`date`,`time_in`,`time_out`,`status`) VALUES "
+                    + "('"+studentId+"','"+rfidId+"','"+event+"','"+date+"',STR_TO_DATE('"+time+"', '%h:%i %p'),NULL,'"+status+"')";
+            }
+            else{
+                 SimpleDateFormat format = new SimpleDateFormat("h:mm a");
+                 long differenceInMinutes = 0;
+                try {
+
+                    Date date1 = format.parse(time);
+                    Date date2 = format.parse(scanTime.get(scannedRFID.indexOf(rfidId)));
+                    System.out.println(time +" vs "+scanTime.get(scannedRFID.indexOf(rfidId)));
+
+                    long differenceInMillis = date1.getTime() - date2.getTime();
+                    differenceInMinutes = TimeUnit.MILLISECONDS.toMinutes(differenceInMillis);
+
+                    System.out.println("Time difference in minutes: " + differenceInMinutes);
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                }
+
+                if(differenceInMinutes > 1 && type=="Time-in"){
+                    type = "Time-out";
+                    query1 = "UPDATE `student_record` SET `time_out` = STR_TO_DATE('"+time+"', '%h:%i %p') WHERE rfid_id ='"+rfidId+"'";    
+                }
+                else{
+                    System.out.println("You just timed in");
+                }
+                }
+                System.out.println("Query is " +query1);
+                 if(!query1.isEmpty()){
+                     String line="";
+                     if(firstName.contains(" ")){
+                        line = lastName+" "+firstName.substring(0, 1)+""+firstName.substring(firstName.indexOf(" ")+1,firstName.indexOf(" ")+2 )+".                ";
+                     }
+                     else{
+                         line = lastName+" "+firstName.substring(0, 1)+".                      ";
+                     }
+                     String line2 = course+" "+year+""+block;
+                     String lineWrite = line.substring(0,16)+line2;
+                     System.out.println("write is" +lineWrite);
+                     qp.executeUpdate(query1);
+                     executeArduinoWrite(lineWrite);
+                     displayRecentScans();
+                     totalPresentCount++;
+                     totalPresent1.setText(""+totalPresentCount);
+                     
+                }
+            }
+        else{
+            System.out.println("No records found");
+        }
+        
+    }
+    
+    
+
     
     public boolean addStudent(){
         qp.executeUpdate("Insert into `student_info` values('"+addRFIDTF.getText()+"','"+addIDNoTF.getText()+"','"+addFNameTF.getText()
@@ -135,8 +306,10 @@ public class HomePanel extends javax.swing.JFrame {
         recentRecordsTable = new javax.swing.JTable();
         searchTF = new javax.swing.JTextField();
         sortCB = new javax.swing.JComboBox<>();
-        jToggleButton1 = new javax.swing.JToggleButton();
+        enableRFIDBtn = new javax.swing.JToggleButton();
         jLabel1 = new javax.swing.JLabel();
+        jLabel16 = new javax.swing.JLabel();
+        enableAttendanceBtn = new javax.swing.JToggleButton();
         statisticsPanel = new javax.swing.JPanel();
         totalPresent = new javax.swing.JLabel();
         line = new javax.swing.JPanel();
@@ -146,7 +319,6 @@ public class HomePanel extends javax.swing.JFrame {
         studentPerCourseTable = new javax.swing.JTable();
 
         manageStudentDialog.setMinimumSize(new java.awt.Dimension(981, 570));
-        manageStudentDialog.setPreferredSize(new java.awt.Dimension(981, 570));
 
         jPanel2.setBackground(new java.awt.Color(255, 255, 255));
 
@@ -505,11 +677,12 @@ public class HomePanel extends javax.swing.JFrame {
                     .addComponent(addIDNoTF, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel4))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(addStudentsDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(addRFIDTF, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel3)
+                .addGroup(addStudentsDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(addRFIDStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 22, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel5))
+                    .addGroup(addStudentsDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(addRFIDTF, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel3)
+                        .addComponent(jLabel5)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(addStudentsDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(addFNameTF, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -713,10 +886,15 @@ public class HomePanel extends javax.swing.JFrame {
                 .addContainerGap())
         );
 
-        jToggleButton1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_switch_off_20px.png"))); // NOI18N
-        jToggleButton1.setText("ON");
+        enableRFIDBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_switch_off_20px.png"))); // NOI18N
+        enableRFIDBtn.setText("ON");
 
         jLabel1.setText("Scan Status:");
+
+        jLabel16.setText("Enable Attendance:");
+
+        enableAttendanceBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_switch_off_20px.png"))); // NOI18N
+        enableAttendanceBtn.setText("ON");
 
         javax.swing.GroupLayout recordsPanelLayout = new javax.swing.GroupLayout(recordsPanel);
         recordsPanel.setLayout(recordsPanelLayout);
@@ -731,10 +909,14 @@ public class HomePanel extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 72, Short.MAX_VALUE)
                         .addComponent(dateTimeLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 304, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(recordsPanelLayout.createSequentialGroup()
+                        .addGap(6, 6, 6)
                         .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 64, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(jToggleButton1)
-                        .addGap(0, 0, Short.MAX_VALUE)))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(enableRFIDBtn)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jLabel16)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(enableAttendanceBtn)))
                 .addContainerGap())
         );
         recordsPanelLayout.setVerticalGroup(
@@ -746,10 +928,14 @@ public class HomePanel extends javax.swing.JFrame {
                     .addComponent(dateTimeLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 44, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(recordsTablePanel, javax.swing.GroupLayout.PREFERRED_SIZE, 480, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(7, 7, 7)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(recordsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jToggleButton1)))
+                    .addComponent(enableRFIDBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                    .addComponent(jLabel1)
+                    .addGroup(recordsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(enableAttendanceBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                        .addComponent(jLabel16)))
+                .addContainerGap())
         );
 
         statisticsPanel.setBackground(new java.awt.Color(255, 255, 255));
@@ -779,7 +965,7 @@ public class HomePanel extends javax.swing.JFrame {
 
         totalPresent1.setFont(new java.awt.Font("Century Gothic", 1, 48)); // NOI18N
         totalPresent1.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-        totalPresent1.setText("790");
+        totalPresent1.setText("0");
         totalPresent1.setVerticalAlignment(javax.swing.SwingConstants.BOTTOM);
         totalPresent1.setHorizontalTextPosition(javax.swing.SwingConstants.RIGHT);
 
@@ -850,7 +1036,7 @@ public class HomePanel extends javax.swing.JFrame {
                 .addComponent(ribbonPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(statisticsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, 0, Short.MAX_VALUE)
+                    .addComponent(statisticsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 570, Short.MAX_VALUE)
                     .addComponent(recordsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
 
@@ -876,11 +1062,16 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void settingsBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_settingsBtnActionPerformed
         // TODO add your handling code here:
+  
     }//GEN-LAST:event_settingsBtnActionPerformed
 
     private void addStudentBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addStudentBtnActionPerformed
+        String rfidId = RFIDATTENDANCE.rfidId;
         addStudentsDialog.setVisible(true);
         addStudentsDialog.setLocationRelativeTo(null);
+        addRFIDTF.setText(rfidId);
+        
+        
     }//GEN-LAST:event_addStudentBtnActionPerformed
 
     private void addEventBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addEventBtnActionPerformed
@@ -899,7 +1090,7 @@ public class HomePanel extends javax.swing.JFrame {
                && !addBlockTF.equals("") && !addStatusTF.equals("")){
             if(addStudent()){
                 JOptionPane.showMessageDialog(null, "Student Added Successfully");
-                displayRecentScans();
+                
             }
         }
     }//GEN-LAST:event_addStudentRecordBtnActionPerformed
@@ -951,7 +1142,7 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JTextField addLNameTF;
     private javax.swing.JTextField addMNameTF;
     private javax.swing.JToggleButton addRFIDStatus;
-    private javax.swing.JTextField addRFIDTF;
+    public javax.swing.JTextField addRFIDTF;
     private javax.swing.JTextField addStatusTF;
     private javax.swing.JButton addStudentBtn;
     private javax.swing.JButton addStudentRecordBtn;
@@ -962,6 +1153,8 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JButton deleteStudentBtn;
     private javax.swing.JButton editColumnsBtn;
     private javax.swing.JDialog editHeadingDialog;
+    private javax.swing.JToggleButton enableAttendanceBtn;
+    private javax.swing.JToggleButton enableRFIDBtn;
     private javax.swing.JLabel eventLabel;
     private javax.swing.JButton importCSVBtn;
     private javax.swing.JCheckBox jCheckBox1;
@@ -984,6 +1177,7 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel13;
     private javax.swing.JLabel jLabel14;
     private javax.swing.JLabel jLabel15;
+    private javax.swing.JLabel jLabel16;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
@@ -999,7 +1193,6 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JTextField jTextField1;
-    private javax.swing.JToggleButton jToggleButton1;
     private javax.swing.JPanel line;
     private javax.swing.JPanel mainPanel;
     private javax.swing.JDialog manageStudentDialog;

@@ -24,11 +24,11 @@ public class DBConnection {
       try
       {
          //Class.forName("com.mysql.jdbc.Driver");
-          connect = DriverManager.getConnection("jdbc:mysql://localhost/booking_system", "bookingsystem", "bookingsystem");
+          connect = DriverManager.getConnection("jdbc:mysql://localhost/rfid_attendance", "root", "");
        //JOptionPane.showMessageDialog(null, "Succesfully Connected!");
       }catch(Exception e)
      {
-       //  JOptionPane.showMessageDialog(null, "Connection Failed");
+         //JOptionPane.showMessageDialog(null, "Connection Failed");
          e.printStackTrace();
           
       }
