@@ -23,6 +23,7 @@ Ribbon Buttons
 			Port Selection
 				Auto Select Port
 		Date and Time Settings
+			Time in and out range
 		Always on Top Option
 		
 	
