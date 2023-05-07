@@ -19,6 +19,12 @@ import javax.swing.JOptionPane;
 import javax.swing.Timer;
 import javax.swing.table.DefaultTableModel;
 import static rfid.attendance.RFIDATTENDANCE.arduinoPort;
+import java.sql.*;
+import java.util.Calendar;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerDateModel;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.table.DefaultTableCellRenderer;
 
 /**
  *
@@ -40,13 +46,22 @@ public class HomePanel extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Manage Students Panel">   
     DefaultTableModel manageStudentModel;
     Object manageStudentTablerow [][];
-    String manageStudentTablecol []= {"ID No.","RFID ID","Last Name","First Name","M.I.","Age","Email","Year","Course","Block","Status"};
+    String manageStudentTablecol []= {"ID No.","RFID ID","Last Name","First Name","Middle Name.","Age","Gender","Address","Email","Year","Course","Block","Status"};
+    
+  
+    // </editor-fold>    
+    
+    // <editor-fold defaultstate="collapsed" desc="Manage Students Panel">   
+    DefaultTableModel courseCountModel;
+    Object courseCount [][];
+    String courseColumn []= {"Course","Count"};
     
   
     // </editor-fold>    
     
     ArrayList<String> scannedRFID = new ArrayList<>();
     ArrayList<String> scanTime = new ArrayList<>();
+    ArrayList<String> scanType = new ArrayList<>();
     
     LocalDate currentDate;
     LocalTime currentTime;
@@ -54,15 +69,15 @@ public class HomePanel extends javax.swing.JFrame {
     DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("YYYY-MM-dd");
     DateTimeFormatter longDateFormatter = DateTimeFormatter.ofPattern("MMMM d, yyyy");
     DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
-    String date;
-    String longDate;
-    String time;
+    public static String date;
+    public static String longDate;
+    public static String time;
     
     String event = "School Day";
     String studentsInvolved = "All Students";
     String attendanceStatus="";
+    String attendanceType="";
     int totalPresentCount = 0;
-    
     Timer timer;
     
    
@@ -73,6 +88,7 @@ public class HomePanel extends javax.swing.JFrame {
         initComponents();
         displayRecentScans();
         displayManageStudentTable();
+        preProcess();
         
         eventLabel.setText("Event: "+event);
         
@@ -95,8 +111,7 @@ public class HomePanel extends javax.swing.JFrame {
         });
         timer.setInitialDelay(0);
         timer.start();
-        
-        
+        updateStudentCount();
         
 
         // Start the timer
@@ -104,10 +119,45 @@ public class HomePanel extends javax.swing.JFrame {
         
     }
     
-   
+    public void updateStudentCount(){
+        System.out.println(scanType.toString());
+        totalPresent1.setText(scannedRFID.size()+"");
+        timedIn.setText("Timed-in: "+scanType.stream().filter(element -> element.equals("Time-in")).count()+"");
+        timedOut.setText("Timed-out: "+scanType.stream().filter(element ->  element.equals("Time-out")).count()+"");
+    }
+    
+    public  void preProcess(){
+        int totalStudents = qp.getAllRecord("Select `student_id` from `student_info`").length;
+        totalPresent.setText("/"+totalStudents);
+        
+        courseCount = qp.getAllRecord("SELECT `course`, COUNT(*) AS count FROM `student_info` GROUP BY `course` ");
+        courseCountModel = new DefaultTableModel(courseCount,courseColumn);
+        studentPerCourseTable.setModel(courseCountModel);
+        DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
+        rightRenderer.setHorizontalAlignment(timedOut.RIGHT);
+        studentPerCourseTable.getColumnModel().getColumn(1).setCellRenderer(rightRenderer);
+        studentPerCourseTable.setShowGrid(false);
+        studentPerCourseTable.getTableHeader().setVisible(false);
+        
+        String query = "Select `rfid_id`, TIME_FORMAT(`time_in`, '%h:%i %p') AS formatted_time_in,"
+                + "CASE WHEN time_out IS NULL THEN 'Time-in' ELSE 'Time-out' END AS time_status from `student_record`";
+        Object row[][]=qp.getAllRecord(query);
+        if(row!=null){
+            for (int i = 0; i < row.length; i++) {
+                scannedRFID.add(row[i][0].toString());
+                scanTime.add(row[i][1].toString());
+                scanType.add(row[i][2].toString());
+            }
+            System.out.println(scanTime.toString()+"\n sd"+scannedRFID.toString());
+        }
+        
+    }
+    
+    
     
     public void executeArduinoWrite(String messagee) {
         if (arduinoPort != null && arduinoPort.isOpen()) {
+            System.out.println("port open for message");
             arduinoPort.writeBytes(messagee.getBytes(), messagee.length());
             
         }
@@ -124,25 +174,33 @@ public class HomePanel extends javax.swing.JFrame {
         tablerow = qp.getAllRecord(query);
         model = new DefaultTableModel(tablerow,tablecol);
         recentRecordsTable.setModel(model);
-        recentRecordsTable.getColumnModel().getColumn(0).setPreferredWidth(20);
+        
+        recentRecordsTable.getColumnModel().getColumn(0).setPreferredWidth(50);
         recentRecordsTable.getColumnModel().getColumn(3).setPreferredWidth(5);
         recentRecordsTable.getColumnModel().getColumn(5).setPreferredWidth(15);
         recentRecordsTable.getColumnModel().getColumn(6).setPreferredWidth(15);
         
+        
     }
     public void displayManageStudentTable(){
-        String searchQuery = "SELECT * FROM `student_info`"; 
+        String searchQuery = "SELECT `student_id`,`rfid_id`,`last_name`, `first_name`, `middle_name`, `age`, `gender`, `address`, `email`, `year`, `course`, `block`, `status` FROM `student_info`"; 
         
-                //System.out.println(searchQuery);
         manageStudentTablerow = qp.getAllRecord(searchQuery);
         manageStudentModel = new DefaultTableModel(manageStudentTablerow,manageStudentTablecol);
         manageStudentTable.setModel(manageStudentModel);
+        manageStudentTable.getColumnModel().getColumn(0).setPreferredWidth(50);
+        manageStudentTable.getColumnModel().getColumn(1).setPreferredWidth(60);
+        manageStudentTable.getColumnModel().getColumn(5).setPreferredWidth(25);
+        manageStudentTable.getColumnModel().getColumn(6).setPreferredWidth(35);
+        manageStudentTable.getColumnModel().getColumn(9).setPreferredWidth(25);
+        manageStudentTable.getColumnModel().getColumn(11).setPreferredWidth(25);
+        //manageStudentTable.getColumnModel().getColumn(12).setPreferredWidth(50);
+        
     }
     
     public void insertStudentAttendance(String rfidId){
-        String studentId, lastName, firstName, middleInit, type="Time-in",timeIn=time,timeOut= null, status, course, year, block;
+        String studentId, lastName, firstName, middleInit,timeIn=time,timeOut= null, status, course, year, block;
         String query = "Select * FROM student_info WHERE `rfid_id`= '"+rfidId+"'";
-        System.out.println("rf is "+rfidId);
         String[] result=null;
         try{
             result = qp.getSpecificRow(query);
@@ -164,10 +222,9 @@ public class HomePanel extends javax.swing.JFrame {
             String query1="";
             System.out.println(scannedRFID.toString());
             if (!scannedRFID.contains(rfidId)){
-                System.out.println("why");
-                type = "Time-in";
                 scannedRFID.add(rfidId);
                 scanTime.add(time);
+                scanType.add("Time-in");
                 query1 = "INSERT into `student_record` (`student_id`,`rfid_id`,`event`,`date`,`time_in`,`time_out`,`status`) VALUES "
                     + "('"+studentId+"','"+rfidId+"','"+event+"','"+date+"',STR_TO_DATE('"+time+"', '%h:%i %p'),NULL,'"+status+"')";
             }
@@ -188,12 +245,13 @@ public class HomePanel extends javax.swing.JFrame {
                     e.printStackTrace();
                 }
 
-                if(differenceInMinutes > 1 && type=="Time-in"){
-                    type = "Time-out";
+                if(differenceInMinutes > 1 && scanType.get(scannedRFID.indexOf(rfidId)).equals("Time-in")){
+                    scanType.set(scannedRFID.indexOf(rfidId),"Time-out");
                     query1 = "UPDATE `student_record` SET `time_out` = STR_TO_DATE('"+time+"', '%h:%i %p') WHERE rfid_id ='"+rfidId+"'";    
                 }
                 else{
-                    System.out.println("You just timed in");
+                    System.out.println(lastName+" already timed-"+scanType.get(scannedRFID.indexOf(rfidId)).substring(5));
+                    query1 = "";
                 }
                 }
                 System.out.println("Query is " +query1);
@@ -207,17 +265,16 @@ public class HomePanel extends javax.swing.JFrame {
                      }
                      String line2 = course+" "+year+""+block;
                      String lineWrite = line.substring(0,16)+line2;
-                     System.out.println("write is" +lineWrite);
                      qp.executeUpdate(query1);
                      executeArduinoWrite(lineWrite);
                      displayRecentScans();
-                     totalPresentCount++;
-                     totalPresent1.setText(""+totalPresentCount);
+                     updateStudentCount();
                      
                 }
             }
         else{
-            System.out.println("No records found");
+            System.out.println("No record found");
+            executeArduinoWrite("No Record Found! ID: "+rfidId+"                         ");
         }
         
     }
@@ -291,6 +348,59 @@ public class HomePanel extends javax.swing.JFrame {
         jLabel15 = new javax.swing.JLabel();
         addStatusTF = new javax.swing.JTextField();
         addStudentRecordBtn = new javax.swing.JButton();
+        addEvent = new javax.swing.JDialog();
+        jLabel17 = new javax.swing.JLabel();
+        jLabel18 = new javax.swing.JLabel();
+        eventNameTF = new javax.swing.JTextField();
+        jLabel20 = new javax.swing.JLabel();
+        jLabel21 = new javax.swing.JLabel();
+        jLabel22 = new javax.swing.JLabel();
+        addStudentRecordBtn1 = new javax.swing.JButton();
+        jCheckBox13 = new javax.swing.JCheckBox();
+        jCheckBox19 = new javax.swing.JCheckBox();
+        jCheckBox20 = new javax.swing.JCheckBox();
+        jCheckBox21 = new javax.swing.JCheckBox();
+        jCheckBox22 = new javax.swing.JCheckBox();
+        customStudents = new javax.swing.JButton();
+        jLabel19 = new javax.swing.JLabel();
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 7);
+        calendar.set(Calendar.MINUTE, 30);
+        Date startTime = calendar.getTime();
+
+        SpinnerDateModel sm = new SpinnerDateModel(startTime, null, null, Calendar.HOUR_OF_DAY);
+        timeInStart = new javax.swing.JSpinner(sm);
+        Calendar calendar2 = Calendar.getInstance();
+        calendar2.set(Calendar.HOUR_OF_DAY, 8);
+        calendar2.set(Calendar.MINUTE, 0);
+        Date startTime2 = calendar2.getTime();
+
+        SpinnerDateModel sm2 = new SpinnerDateModel(startTime2, null, null, Calendar.HOUR_OF_DAY);
+        timeInEnd = new javax.swing.JSpinner(sm2);
+        Calendar calendar4 = Calendar.getInstance();
+        calendar4.set(Calendar.HOUR_OF_DAY, 17);
+        calendar4.set(Calendar.MINUTE, 0);
+        Date startTime4 = calendar4.getTime();
+
+        SpinnerDateModel sm4 = new SpinnerDateModel(startTime4, null, null, Calendar.HOUR_OF_DAY);
+        timeOutEnd = new javax.swing.JSpinner(sm4);
+        Calendar calendar3 = Calendar.getInstance();
+        calendar3.set(Calendar.HOUR_OF_DAY, 16);
+        calendar3.set(Calendar.MINUTE, 30);
+        Date startTime3 = calendar3.getTime();
+
+        SpinnerDateModel sm3 = new SpinnerDateModel(startTime3, null, null, Calendar.HOUR_OF_DAY);
+        timeOutStart = new javax.swing.JSpinner(sm3);
+        jLabel23 = new javax.swing.JLabel();
+        studentsList = new javax.swing.JDialog();
+        jCheckBox14 = new javax.swing.JCheckBox();
+        jCheckBox15 = new javax.swing.JCheckBox();
+        jCheckBox16 = new javax.swing.JCheckBox();
+        jCheckBox17 = new javax.swing.JCheckBox();
+        jCheckBox18 = new javax.swing.JCheckBox();
+        jCheckBox25 = new javax.swing.JCheckBox();
+        jCheckBox26 = new javax.swing.JCheckBox();
+        jCheckBox27 = new javax.swing.JCheckBox();
         mainPanel = new javax.swing.JPanel();
         ribbonPanel = new javax.swing.JPanel();
         addEventBtn = new javax.swing.JButton();
@@ -306,10 +416,9 @@ public class HomePanel extends javax.swing.JFrame {
         recentRecordsTable = new javax.swing.JTable();
         searchTF = new javax.swing.JTextField();
         sortCB = new javax.swing.JComboBox<>();
-        enableRFIDBtn = new javax.swing.JToggleButton();
-        jLabel1 = new javax.swing.JLabel();
         jLabel16 = new javax.swing.JLabel();
         enableAttendanceBtn = new javax.swing.JToggleButton();
+        arduinoStatus = new javax.swing.JLabel();
         statisticsPanel = new javax.swing.JPanel();
         totalPresent = new javax.swing.JLabel();
         line = new javax.swing.JPanel();
@@ -317,8 +426,12 @@ public class HomePanel extends javax.swing.JFrame {
         totalPresent1 = new javax.swing.JLabel();
         jScrollPane2 = new javax.swing.JScrollPane();
         studentPerCourseTable = new javax.swing.JTable();
+        timedOut = new javax.swing.JLabel();
+        timedIn = new javax.swing.JLabel();
 
+        manageStudentDialog.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         manageStudentDialog.setMinimumSize(new java.awt.Dimension(981, 570));
+        manageStudentDialog.setModalExclusionType(java.awt.Dialog.ModalExclusionType.TOOLKIT_EXCLUDE);
 
         jPanel2.setBackground(new java.awt.Color(255, 255, 255));
 
@@ -475,9 +588,13 @@ public class HomePanel extends javax.swing.JFrame {
             .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         );
 
+        manageStudentDialog.getAccessibleContext().setAccessibleParent(null);
+
+        editHeadingDialog.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         editHeadingDialog.setBackground(new java.awt.Color(255, 255, 255));
         editHeadingDialog.setIconImage(null);
-        editHeadingDialog.setMinimumSize(new java.awt.Dimension(215, 300));
+        editHeadingDialog.setMinimumSize(new java.awt.Dimension(264, 193));
+        editHeadingDialog.setPreferredSize(new java.awt.Dimension(264, 193));
 
         jCheckBox1.setSelected(true);
         jCheckBox1.setText("RFID ID");
@@ -521,54 +638,62 @@ public class HomePanel extends javax.swing.JFrame {
             editHeadingDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(editHeadingDialogLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(editHeadingDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(editHeadingDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(jCheckBox1, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jCheckBox2, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jCheckBox3, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jCheckBox4, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jCheckBox5, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jCheckBox6, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jCheckBox7, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jCheckBox8, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jCheckBox5)
+                    .addComponent(jCheckBox3, javax.swing.GroupLayout.DEFAULT_SIZE, 108, Short.MAX_VALUE)
+                    .addComponent(jCheckBox4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jCheckBox2, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 47, Short.MAX_VALUE)
+                .addGroup(editHeadingDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(jCheckBox9, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jCheckBox10, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jCheckBox11, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jCheckBox12, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(21, Short.MAX_VALUE))
+                    .addComponent(jCheckBox12, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(editHeadingDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                        .addComponent(jCheckBox7, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jCheckBox8, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addGap(18, 18, 18))
         );
         editHeadingDialogLayout.setVerticalGroup(
             editHeadingDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(editHeadingDialogLayout.createSequentialGroup()
                 .addGap(7, 7, 7)
-                .addComponent(jCheckBox1)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jCheckBox2)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jCheckBox4)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jCheckBox3)
-                .addGap(20, 20, 20)
-                .addComponent(jCheckBox5)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jCheckBox6)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jCheckBox7)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jCheckBox8)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jCheckBox9)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jCheckBox10)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jCheckBox11)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jCheckBox12)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGroup(editHeadingDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(editHeadingDialogLayout.createSequentialGroup()
+                        .addComponent(jCheckBox7)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox8)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox9)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox10)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox11)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox12))
+                    .addGroup(editHeadingDialogLayout.createSequentialGroup()
+                        .addComponent(jCheckBox1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox2)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox4)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox3)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox5)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox6)))
+                .addContainerGap(36, Short.MAX_VALUE))
         );
 
+        addStudentsDialog.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         addStudentsDialog.setTitle("Add Student");
         addStudentsDialog.setBackground(new java.awt.Color(255, 255, 255));
-        addStudentsDialog.setMinimumSize(new java.awt.Dimension(421, 407));
+        addStudentsDialog.setMinimumSize(new java.awt.Dimension(431, 446));
+        addStudentsDialog.setPreferredSize(new java.awt.Dimension(431, 446));
+        addStudentsDialog.setSize(new java.awt.Dimension(431, 446));
 
         jLabel3.setText("RFID ID:");
 
@@ -667,7 +792,7 @@ public class HomePanel extends javax.swing.JFrame {
                                     .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                     .addComponent(addRFIDStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 62, javax.swing.GroupLayout.PREFERRED_SIZE))
                                 .addComponent(addIDNoTF, javax.swing.GroupLayout.PREFERRED_SIZE, 273, javax.swing.GroupLayout.PREFERRED_SIZE)))))
-                .addGap(36, 36, 36))
+                .addContainerGap(46, Short.MAX_VALUE))
         );
         addStudentsDialogLayout.setVerticalGroup(
             addStudentsDialogLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -725,7 +850,272 @@ public class HomePanel extends javax.swing.JFrame {
                     .addComponent(jLabel15))
                 .addGap(18, 18, 18)
                 .addComponent(addStudentRecordBtn)
-                .addContainerGap(9, Short.MAX_VALUE))
+                .addContainerGap(28, Short.MAX_VALUE))
+        );
+
+        addEvent.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        addEvent.setTitle("Add Student");
+        addEvent.setBackground(new java.awt.Color(255, 255, 255));
+        addEvent.setMinimumSize(new java.awt.Dimension(482, 255));
+        addEvent.setPreferredSize(new java.awt.Dimension(482, 255));
+        addEvent.setSize(new java.awt.Dimension(482, 255));
+
+        jLabel17.setText("Students:");
+
+        jLabel18.setText("Event Name:");
+
+        jLabel20.setText("Year:");
+
+        jLabel21.setText("Time-in:");
+
+        jLabel22.setText("Time-out");
+
+        addStudentRecordBtn1.setText("Add");
+        addStudentRecordBtn1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                addStudentRecordBtn1ActionPerformed(evt);
+            }
+        });
+
+        jCheckBox13.setSelected(true);
+        jCheckBox13.setText("1st Year");
+        jCheckBox13.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jCheckBox13ActionPerformed(evt);
+            }
+        });
+
+        jCheckBox19.setSelected(true);
+        jCheckBox19.setText("2nd Year");
+        jCheckBox19.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jCheckBox19ActionPerformed(evt);
+            }
+        });
+
+        jCheckBox20.setSelected(true);
+        jCheckBox20.setText("3rd Year");
+        jCheckBox20.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jCheckBox20ActionPerformed(evt);
+            }
+        });
+
+        jCheckBox21.setSelected(true);
+        jCheckBox21.setText("4th Year");
+        jCheckBox21.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jCheckBox21ActionPerformed(evt);
+            }
+        });
+
+        jCheckBox22.setSelected(true);
+        jCheckBox22.setText("All Courses");
+
+        customStudents.setText("Custom");
+        customStudents.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                customStudentsActionPerformed(evt);
+            }
+        });
+
+        jLabel19.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel19.setText("to");
+
+        SimpleDateFormat format = new SimpleDateFormat("hh:mm a");
+        JSpinner.DateEditor de = new JSpinner.DateEditor(timeInStart, format.toPattern());
+        timeInStart.setEditor(de);
+
+        SimpleDateFormat format2 = new SimpleDateFormat("hh:mm a");
+        JSpinner.DateEditor de2 = new JSpinner.DateEditor(timeInEnd, format.toPattern());
+        timeInEnd.setEditor(de2);
+
+        SimpleDateFormat format4 = new SimpleDateFormat("hh:mm a");
+        JSpinner.DateEditor de4 = new JSpinner.DateEditor(timeOutEnd, format4.toPattern());
+        timeOutEnd.setEditor(de4);
+
+        SimpleDateFormat format3 = new SimpleDateFormat("hh:mm a");
+        JSpinner.DateEditor de3 = new JSpinner.DateEditor(timeOutStart, format3.toPattern());
+        timeOutStart.setEditor(de3);
+
+        jLabel23.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel23.setText("to");
+
+        javax.swing.GroupLayout addEventLayout = new javax.swing.GroupLayout(addEvent.getContentPane());
+        addEvent.getContentPane().setLayout(addEventLayout);
+        addEventLayout.setHorizontalGroup(
+            addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(addEventLayout.createSequentialGroup()
+                .addGap(24, 24, 24)
+                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(addStudentRecordBtn1)
+                    .addGroup(addEventLayout.createSequentialGroup()
+                        .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, addEventLayout.createSequentialGroup()
+                                        .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                            .addComponent(jLabel18)
+                                            .addComponent(jLabel17, javax.swing.GroupLayout.PREFERRED_SIZE, 66, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                        .addGap(22, 22, 22))
+                                    .addGroup(addEventLayout.createSequentialGroup()
+                                        .addComponent(jLabel20)
+                                        .addGap(62, 62, 62)))
+                                .addGroup(addEventLayout.createSequentialGroup()
+                                    .addComponent(jLabel21)
+                                    .addGap(45, 45, 45)))
+                            .addGroup(addEventLayout.createSequentialGroup()
+                                .addComponent(jLabel22)
+                                .addGap(39, 39, 39)))
+                        .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addGroup(addEventLayout.createSequentialGroup()
+                                .addComponent(jCheckBox22)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(customStudents))
+                            .addGroup(addEventLayout.createSequentialGroup()
+                                .addComponent(timeInStart, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(jLabel19, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(timeInEnd, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(addEventLayout.createSequentialGroup()
+                                .addComponent(jCheckBox13)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(jCheckBox19)
+                                .addGap(12, 12, 12)
+                                .addComponent(jCheckBox20)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 9, Short.MAX_VALUE)
+                                .addComponent(jCheckBox21))
+                            .addComponent(eventNameTF)
+                            .addGroup(addEventLayout.createSequentialGroup()
+                                .addComponent(timeOutStart, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(jLabel23, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(timeOutEnd, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                .addGap(28, 28, 28))
+        );
+        addEventLayout.setVerticalGroup(
+            addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(addEventLayout.createSequentialGroup()
+                .addGap(28, 28, 28)
+                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(eventNameTF, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel18))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel17)
+                    .addComponent(jCheckBox22, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(customStudents))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel20)
+                    .addComponent(jCheckBox13, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jCheckBox19, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jCheckBox20, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jCheckBox21, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel21)
+                    .addComponent(timeInStart, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(timeInEnd, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel19, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(timeOutStart, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(timeOutEnd, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel23, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(jLabel22))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(addStudentRecordBtn1)
+                .addContainerGap())
+        );
+
+        studentsList.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        studentsList.setBackground(new java.awt.Color(255, 255, 255));
+        studentsList.setIconImage(null);
+        studentsList.setMinimumSize(new java.awt.Dimension(264, 156));
+        studentsList.setPreferredSize(new java.awt.Dimension(264, 156));
+        studentsList.setSize(new java.awt.Dimension(264, 156));
+
+        jCheckBox14.setSelected(true);
+        jCheckBox14.setText("BSCS");
+
+        jCheckBox15.setSelected(true);
+        jCheckBox15.setText("BSIT-Food Tech");
+
+        jCheckBox16.setSelected(true);
+        jCheckBox16.setText("BSIT-Elect");
+
+        jCheckBox17.setSelected(true);
+        jCheckBox17.setText("BSF");
+
+        jCheckBox18.setSelected(true);
+        jCheckBox18.setText("BEEd");
+
+        jCheckBox25.setSelected(true);
+        jCheckBox25.setText("BSED- Math");
+        jCheckBox25.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jCheckBox25ActionPerformed(evt);
+            }
+        });
+
+        jCheckBox26.setSelected(true);
+        jCheckBox26.setText("BSED- English");
+        jCheckBox26.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jCheckBox26ActionPerformed(evt);
+            }
+        });
+
+        jCheckBox27.setSelected(true);
+        jCheckBox27.setText("Midwifery");
+
+        javax.swing.GroupLayout studentsListLayout = new javax.swing.GroupLayout(studentsList.getContentPane());
+        studentsList.getContentPane().setLayout(studentsListLayout);
+        studentsListLayout.setHorizontalGroup(
+            studentsListLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(studentsListLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(studentsListLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(jCheckBox17)
+                    .addComponent(jCheckBox15, javax.swing.GroupLayout.DEFAULT_SIZE, 108, Short.MAX_VALUE)
+                    .addComponent(jCheckBox16, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jCheckBox14, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 28, Short.MAX_VALUE)
+                .addGroup(studentsListLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(studentsListLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                        .addComponent(jCheckBox26, javax.swing.GroupLayout.DEFAULT_SIZE, 108, Short.MAX_VALUE)
+                        .addComponent(jCheckBox18, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jCheckBox25, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(jCheckBox27))
+                .addGap(14, 14, 14))
+        );
+        studentsListLayout.setVerticalGroup(
+            studentsListLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(studentsListLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(studentsListLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(studentsListLayout.createSequentialGroup()
+                        .addComponent(jCheckBox14)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox16)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox15))
+                    .addGroup(studentsListLayout.createSequentialGroup()
+                        .addComponent(jCheckBox18)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox25)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jCheckBox26)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(studentsListLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jCheckBox17)
+                    .addComponent(jCheckBox27))
+                .addContainerGap(52, Short.MAX_VALUE))
         );
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
@@ -841,6 +1231,7 @@ public class HomePanel extends javax.swing.JFrame {
         recordsTablePanel.setBackground(new java.awt.Color(255, 255, 255));
         recordsTablePanel.setBorder(javax.swing.BorderFactory.createEtchedBorder());
 
+        recentRecordsTable.setAutoCreateRowSorter(true);
         recentRecordsTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null, null, null},
@@ -886,15 +1277,19 @@ public class HomePanel extends javax.swing.JFrame {
                 .addContainerGap())
         );
 
-        enableRFIDBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_switch_off_20px.png"))); // NOI18N
-        enableRFIDBtn.setText("ON");
-
-        jLabel1.setText("Scan Status:");
-
         jLabel16.setText("Enable Attendance:");
 
         enableAttendanceBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_switch_off_20px.png"))); // NOI18N
-        enableAttendanceBtn.setText("ON");
+        enableAttendanceBtn.setSelected(true);
+        enableAttendanceBtn.setDisabledSelectedIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_switch_off_20px.png"))); // NOI18N
+        enableAttendanceBtn.setSelectedIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_switch_on_20px.png"))); // NOI18N
+        enableAttendanceBtn.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                enableAttendanceBtnMouseClicked(evt);
+            }
+        });
+
+        arduinoStatus.setText("Scan Status: ");
 
         javax.swing.GroupLayout recordsPanelLayout = new javax.swing.GroupLayout(recordsPanel);
         recordsPanel.setLayout(recordsPanelLayout);
@@ -909,14 +1304,12 @@ public class HomePanel extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 72, Short.MAX_VALUE)
                         .addComponent(dateTimeLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 304, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(recordsPanelLayout.createSequentialGroup()
-                        .addGap(6, 6, 6)
-                        .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 64, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(enableRFIDBtn)
+                        .addComponent(arduinoStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 174, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(jLabel16)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(enableAttendanceBtn)))
+                        .addComponent(enableAttendanceBtn)
+                        .addGap(8, 8, 8)))
                 .addContainerGap())
         );
         recordsPanelLayout.setVerticalGroup(
@@ -930,11 +1323,9 @@ public class HomePanel extends javax.swing.JFrame {
                 .addComponent(recordsTablePanel, javax.swing.GroupLayout.PREFERRED_SIZE, 480, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(recordsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(enableRFIDBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                    .addComponent(jLabel1)
-                    .addGroup(recordsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(enableAttendanceBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                        .addComponent(jLabel16)))
+                    .addComponent(enableAttendanceBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                    .addComponent(jLabel16)
+                    .addComponent(arduinoStatus))
                 .addContainerGap())
         );
 
@@ -969,18 +1360,32 @@ public class HomePanel extends javax.swing.JFrame {
         totalPresent1.setVerticalAlignment(javax.swing.SwingConstants.BOTTOM);
         totalPresent1.setHorizontalTextPosition(javax.swing.SwingConstants.RIGHT);
 
+        studentPerCourseTable.setAutoCreateRowSorter(true);
+        studentPerCourseTable.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
         studentPerCourseTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null}
+                {null, null},
+                {null, null},
+                {null, null},
+                {null, null}
             },
             new String [] {
-                "Title 1", "Title 2", "Title 3", "Title 4"
+                "Title 1", "Title 2"
             }
         ));
+        studentPerCourseTable.setDoubleBuffered(true);
+        studentPerCourseTable.setFocusable(false);
+        studentPerCourseTable.setRowHeight(25);
+        studentPerCourseTable.setRowMargin(2);
         jScrollPane2.setViewportView(studentPerCourseTable);
+
+        timedOut.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        timedOut.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        timedOut.setText("Timed-out: ");
+        timedOut.setHorizontalTextPosition(javax.swing.SwingConstants.RIGHT);
+
+        timedIn.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        timedIn.setText("Timed-in: ");
 
         javax.swing.GroupLayout statisticsPanelLayout = new javax.swing.GroupLayout(statisticsPanel);
         statisticsPanel.setLayout(statisticsPanelLayout);
@@ -989,19 +1394,23 @@ public class HomePanel extends javax.swing.JFrame {
             .addGroup(statisticsPanelLayout.createSequentialGroup()
                 .addGroup(statisticsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(statisticsPanelLayout.createSequentialGroup()
-                        .addContainerGap()
-                        .addComponent(totalPresent1, javax.swing.GroupLayout.PREFERRED_SIZE, 174, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(totalPresent, javax.swing.GroupLayout.PREFERRED_SIZE, 74, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(statisticsPanelLayout.createSequentialGroup()
                         .addGap(21, 21, 21)
                         .addGroup(statisticsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(statisticsPanelLayout.createSequentialGroup()
                                 .addGap(51, 51, 51)
                                 .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 190, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(statisticsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                                .addComponent(line, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                            .addGroup(statisticsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                                .addGroup(statisticsPanelLayout.createSequentialGroup()
+                                    .addComponent(timedIn, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                    .addComponent(timedOut, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                                .addComponent(line, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                    .addGroup(statisticsPanelLayout.createSequentialGroup()
+                        .addGap(44, 44, 44)
+                        .addComponent(totalPresent1, javax.swing.GroupLayout.PREFERRED_SIZE, 108, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(totalPresent, javax.swing.GroupLayout.PREFERRED_SIZE, 74, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap(34, Short.MAX_VALUE))
         );
         statisticsPanelLayout.setVerticalGroup(
@@ -1015,9 +1424,13 @@ public class HomePanel extends javax.swing.JFrame {
                 .addComponent(jLabel2)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(line, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(statisticsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(timedOut)
+                    .addComponent(timedIn))
+                .addGap(5, 5, 5)
                 .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 184, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(278, 278, 278))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout mainPanelLayout = new javax.swing.GroupLayout(mainPanel);
@@ -1036,7 +1449,7 @@ public class HomePanel extends javax.swing.JFrame {
                 .addComponent(ribbonPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(mainPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(statisticsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 570, Short.MAX_VALUE)
+                    .addComponent(statisticsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(recordsPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
 
@@ -1076,6 +1489,8 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void addEventBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addEventBtnActionPerformed
         // TODO add your handling code here:
+        addEvent.setVisible(true);
+        addEvent.setLocationRelativeTo(null);
     }//GEN-LAST:event_addEventBtnActionPerformed
 
     private void editColumnsBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_editColumnsBtnActionPerformed
@@ -1094,6 +1509,51 @@ public class HomePanel extends javax.swing.JFrame {
             }
         }
     }//GEN-LAST:event_addStudentRecordBtnActionPerformed
+
+    private void enableAttendanceBtnMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_enableAttendanceBtnMouseClicked
+        // TODO add your handling code here:
+        if(!enableAttendanceBtn.isSelected()){
+            executeArduinoWrite("msg0   Attendance        Paused        ");
+            System.out.println("select");
+        }
+        else{
+            executeArduinoWrite("msg1   Attendance       Resumed        ");
+        }
+    }//GEN-LAST:event_enableAttendanceBtnMouseClicked
+
+    private void addStudentRecordBtn1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addStudentRecordBtn1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_addStudentRecordBtn1ActionPerformed
+
+    private void jCheckBox25ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox25ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jCheckBox25ActionPerformed
+
+    private void jCheckBox26ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox26ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jCheckBox26ActionPerformed
+
+    private void jCheckBox13ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox13ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jCheckBox13ActionPerformed
+
+    private void jCheckBox19ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox19ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jCheckBox19ActionPerformed
+
+    private void jCheckBox20ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox20ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jCheckBox20ActionPerformed
+
+    private void jCheckBox21ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox21ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jCheckBox21ActionPerformed
+
+    private void customStudentsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_customStudentsActionPerformed
+        // TODO add your handling code here:
+        studentsList.setVisible(rootPaneCheckingEnabled);
+        studentsList.setLocationRelativeTo(null);
+    }//GEN-LAST:event_customStudentsActionPerformed
 
     /**
      * @param args the command line arguments
@@ -1136,6 +1596,7 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JTextField addBlockTF;
     private javax.swing.JTextField addCourseTF;
     private javax.swing.JTextField addEmailTF;
+    private javax.swing.JDialog addEvent;
     private javax.swing.JButton addEventBtn;
     private javax.swing.JTextField addFNameTF;
     private javax.swing.JTextField addIDNoTF;
@@ -1146,22 +1607,38 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JTextField addStatusTF;
     private javax.swing.JButton addStudentBtn;
     private javax.swing.JButton addStudentRecordBtn;
+    private javax.swing.JButton addStudentRecordBtn1;
     private javax.swing.JDialog addStudentsDialog;
     private javax.swing.JTextField addYearTF;
+    public javax.swing.JLabel arduinoStatus;
     private javax.swing.JButton classScheduleBtn;
+    private javax.swing.JButton customStudents;
     private javax.swing.JLabel dateTimeLabel;
     private javax.swing.JButton deleteStudentBtn;
     private javax.swing.JButton editColumnsBtn;
     private javax.swing.JDialog editHeadingDialog;
-    private javax.swing.JToggleButton enableAttendanceBtn;
-    private javax.swing.JToggleButton enableRFIDBtn;
+    public javax.swing.JToggleButton enableAttendanceBtn;
     private javax.swing.JLabel eventLabel;
+    private javax.swing.JTextField eventNameTF;
     private javax.swing.JButton importCSVBtn;
     private javax.swing.JCheckBox jCheckBox1;
     private javax.swing.JCheckBox jCheckBox10;
     private javax.swing.JCheckBox jCheckBox11;
     private javax.swing.JCheckBox jCheckBox12;
+    private javax.swing.JCheckBox jCheckBox13;
+    private javax.swing.JCheckBox jCheckBox14;
+    private javax.swing.JCheckBox jCheckBox15;
+    private javax.swing.JCheckBox jCheckBox16;
+    private javax.swing.JCheckBox jCheckBox17;
+    private javax.swing.JCheckBox jCheckBox18;
+    private javax.swing.JCheckBox jCheckBox19;
     private javax.swing.JCheckBox jCheckBox2;
+    private javax.swing.JCheckBox jCheckBox20;
+    private javax.swing.JCheckBox jCheckBox21;
+    private javax.swing.JCheckBox jCheckBox22;
+    private javax.swing.JCheckBox jCheckBox25;
+    private javax.swing.JCheckBox jCheckBox26;
+    private javax.swing.JCheckBox jCheckBox27;
     private javax.swing.JCheckBox jCheckBox3;
     private javax.swing.JCheckBox jCheckBox4;
     private javax.swing.JCheckBox jCheckBox5;
@@ -1170,7 +1647,6 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JCheckBox jCheckBox8;
     private javax.swing.JCheckBox jCheckBox9;
     private javax.swing.JComboBox<String> jComboBox1;
-    private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
     private javax.swing.JLabel jLabel12;
@@ -1178,7 +1654,14 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel14;
     private javax.swing.JLabel jLabel15;
     private javax.swing.JLabel jLabel16;
+    private javax.swing.JLabel jLabel17;
+    private javax.swing.JLabel jLabel18;
+    private javax.swing.JLabel jLabel19;
     private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel20;
+    private javax.swing.JLabel jLabel21;
+    private javax.swing.JLabel jLabel22;
+    private javax.swing.JLabel jLabel23;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
@@ -1208,6 +1691,13 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JComboBox<String> sortCB;
     private javax.swing.JPanel statisticsPanel;
     private javax.swing.JTable studentPerCourseTable;
+    private javax.swing.JDialog studentsList;
+    private javax.swing.JSpinner timeInEnd;
+    private javax.swing.JSpinner timeInStart;
+    private javax.swing.JSpinner timeOutEnd;
+    private javax.swing.JSpinner timeOutStart;
+    private javax.swing.JLabel timedIn;
+    private javax.swing.JLabel timedOut;
     private javax.swing.JLabel totalPresent;
     private javax.swing.JLabel totalPresent1;
     private javax.swing.JButton updateStudentBtn;
