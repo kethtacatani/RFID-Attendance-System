@@ -20,7 +20,11 @@ import javax.swing.Timer;
 import javax.swing.table.DefaultTableModel;
 import static rfid.attendance.RFIDATTENDANCE.arduinoPort;
 import java.sql.*;
+import java.text.DateFormatSymbols;
 import java.util.Calendar;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.ImageIcon;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerDateModel;
 import javax.swing.SpinnerNumberModel;
@@ -119,6 +123,17 @@ public class HomePanel extends javax.swing.JFrame {
         
     }
     
+    
+    public void preProcess(){
+        //paused here
+//        SELECT MAX(CASE WHEN trueFalse = 'true' THEN date END) AS date
+//        FROM myTable
+//        WHERE trueFalse = 'true';
+
+//        SELECT 1
+//        FROM your_table_name
+//        WHERE column_name = 'your_value';   if a value exists in a table column
+           }
     public void updateStudentCount(){
         System.out.println(scanType.toString());
         totalPresent1.setText(scannedRFID.size()+"");
@@ -126,7 +141,7 @@ public class HomePanel extends javax.swing.JFrame {
         timedOut.setText("Timed-out: "+scanType.stream().filter(element ->  element.equals("Time-out")).count()+"");
     }
     
-    public  void preProcess(){
+    public  void diplayMainPanel(){
         int totalStudents = qp.getAllRecord("Select `student_id` from `student_info`").length;
         totalPresent.setText("/"+totalStudents);
         
@@ -229,23 +244,8 @@ public class HomePanel extends javax.swing.JFrame {
                     + "('"+studentId+"','"+rfidId+"','"+event+"','"+date+"',STR_TO_DATE('"+time+"', '%h:%i %p'),NULL,'"+status+"')";
             }
             else{
-                 SimpleDateFormat format = new SimpleDateFormat("h:mm a");
-                 long differenceInMinutes = 0;
-                try {
-
-                    Date date1 = format.parse(time);
-                    Date date2 = format.parse(scanTime.get(scannedRFID.indexOf(rfidId)));
-                    System.out.println(time +" vs "+scanTime.get(scannedRFID.indexOf(rfidId)));
-
-                    long differenceInMillis = date1.getTime() - date2.getTime();
-                    differenceInMinutes = TimeUnit.MILLISECONDS.toMinutes(differenceInMillis);
-
-                    System.out.println("Time difference in minutes: " + differenceInMinutes);
-                } catch (ParseException e) {
-                    e.printStackTrace();
-                }
-
-                if(differenceInMinutes > 1 && scanType.get(scannedRFID.indexOf(rfidId)).equals("Time-in")){
+                   
+                if(timedifference(time, scanTime.get(scannedRFID.indexOf(rfidId))) > 1 && scanType.get(scannedRFID.indexOf(rfidId)).equals("Time-in")){
                     scanType.set(scannedRFID.indexOf(rfidId),"Time-out");
                     query1 = "UPDATE `student_record` SET `time_out` = STR_TO_DATE('"+time+"', '%h:%i %p') WHERE rfid_id ='"+rfidId+"'";    
                 }
@@ -279,15 +279,131 @@ public class HomePanel extends javax.swing.JFrame {
         
     }
     
+    public long timedifference(String time1, String time2){
+        SimpleDateFormat format = new SimpleDateFormat("h:mm a");
+        
+        Date date1;
+        Date date2;
+        long differenceInMinutes = 0;
+        try {
+            date1 = format.parse(time1);
+            date2 = format.parse(time2);
+            long differenceInMillis = date1.getTime() - date2.getTime();
+            differenceInMinutes = TimeUnit.MILLISECONDS.toMinutes(differenceInMillis);
+        } catch (ParseException ex) {
+            JOptionPane.showMessageDialog(null, ex);
+        }
+        System.out.println("diff "+differenceInMinutes);
+        return differenceInMinutes;
+    }
     
-
-    
-    public boolean addStudent(){
-        qp.executeUpdate("Insert into `student_info` values('"+addRFIDTF.getText()+"','"+addIDNoTF.getText()+"','"+addFNameTF.getText()
+    public void addStudent(){
+        if(qp.executeUpdate("Insert into `student_info` values('"+addRFIDTF.getText()+"','"+addIDNoTF.getText()+"','"+addFNameTF.getText()
             +"','"+addMNameTF.getText()+"','"+addLNameTF.getText()+"','"+addAgeTF.getText()+"','"+addAddressTF.getText()
             +"','"+addEmailTF.getText()+"','"+addYearTF.getText()+"','"+addCourseTF.getText()+"'"
-                    + ",'"+addBlockTF.getText()+ "','"+addStatusTF.getText()+"') ");
-        return true;
+                    + ",'"+addBlockTF.getText()+ "','"+addStatusTF.getText()+"') ")){
+            JOptionPane.showMessageDialog(null, "Student Added Successfully");
+        }
+
+    }
+    
+    public void addEvent(String timeInStart,String timeInEnd,String timeOutStart,String timeOutEnd){
+        String course="", year="";
+        if(bscsCB.isSelected()){
+            course += bscsCB.getText()+",";
+        }if(bscsCB.isSelected()){
+            course += bsitElectCB.getText()+",";
+        }
+        if(bscsCB.isSelected()){
+            course += bsitFoodTechCB.getText()+",";
+        }
+        if(bscsCB.isSelected()){
+            course += bsfCB.getText()+",";
+        }
+        if(bscsCB.isSelected()){
+            course += beedCB.getText()+",";
+        }
+        if(bscsCB.isSelected()){
+            course += bsedEnglish.getText()+",";
+        }
+        if(bscsCB.isSelected()){
+            course += bsedMathCB.getText()+",";
+        }
+        if(bscsCB.isSelected()){
+            course += bsm.getText()+",";
+        }
+        
+        if(firstYearCb.isSelected()){
+            year += "1,";
+        }
+        if(seconYearCB.isSelected()){
+            year += "2,";
+        }
+        if(thirdYearCB.isSelected()){
+            year += "3,";
+        }
+        if(fourthYearCB.isSelected()){
+            year += "4,";
+        }
+        
+        if(qp.executeUpdate("Insert into `events`( `date`, `event_name`, `students_involved`, `year`, `time_in_range`, `time_out_range`) values ('"+date+"','"+eventNameTF.getText()+"','"+course
+            +"','"+year+"','"+timeInStart+"-"+timeInEnd+"','"+timeOutStart+"-"+timeOutEnd+"')")){
+            JOptionPane.showMessageDialog(null, "Event Added Successfully");
+        }
+    }
+    
+    public void checkStudentList(){
+        if(bscsCB.isSelected()&& bsitElectCB.isSelected()&&bsitFoodTechCB.isSelected()&&bsfCB.isSelected()&&beedCB.isSelected()&&bsedEnglish.isSelected()&&bsedMathCB.isSelected()&&bsm.isSelected()){
+            allCoursesCB.setSelected(true);
+        }
+        else{
+            allCoursesCB.setSelected(false);
+        }
+    }
+    
+    public void addStudentDialogConditions(){
+        DateFormatSymbols symbols = new DateFormatSymbols();
+        symbols.setAmPmStrings(new String[]{"am", "pm"});
+        SimpleDateFormat dateFormat = new SimpleDateFormat("h:mm a", symbols);
+        String timeInStartFormatted = dateFormat.format(timeInStart.getValue());
+        String timeInEndFormatted = dateFormat.format(timeInEnd.getValue());
+        String timeOutStartFormatted = dateFormat.format(timeOutStart.getValue());
+        String timeOutEndFormatted = dateFormat.format(timeOutEnd.getValue());
+        String errorMsg="";
+        
+        if(eventNameTF.equals("")|| timedifference(timeInEndFormatted, timeInStartFormatted)<0 
+                || timedifference(timeOutEndFormatted, timeOutStartFormatted)<0 
+                || (timedifference( timeOutStartFormatted,timeInEndFormatted))<0
+                || (!bscsCB.isSelected() && !bsfCB.isSelected() && !bsm.isSelected() && !beedCB.isSelected() && !bsitElectCB.isSelected() && !bsitFoodTechCB.isSelected() && !bsedEnglish.isSelected() && !bsedMathCB.isSelected())
+                || (!firstYearCb.isSelected() && !seconYearCB.isSelected() && !thirdYearCB.isSelected() && !fourthYearCB.isSelected())){
+            
+            
+            if(eventNameTF.getText().isEmpty()){
+                errorMsg += "- Event name required!\n";
+            }
+            if(!bscsCB.isSelected() && !bsfCB.isSelected() && !bsm.isSelected() && !beedCB.isSelected() && !bsitElectCB.isSelected() && !bsitFoodTechCB.isSelected() && !bsedEnglish.isSelected() && !bsedMathCB.isSelected()){
+                errorMsg += "- No Course Selected!\n";
+            }
+            if(!firstYearCb.isSelected() && !seconYearCB.isSelected() && !thirdYearCB.isSelected() && !fourthYearCB.isSelected()){
+                errorMsg += "- No Students Selected!\n";
+            }
+            if(timedifference(timeInEndFormatted, timeInStartFormatted)<0){
+                errorMsg += "- Time in range is invalid!\n";
+            }
+            if(timedifference(timeOutEndFormatted, timeOutStartFormatted)<0){
+                errorMsg += "- Time out range is invalid!\n";
+            }
+            if((timedifference( timeOutStartFormatted,timeInEndFormatted))<0){
+                errorMsg += "- Time out is earlier than time in!\n";
+            }
+            JOptionPane.showMessageDialog(null, errorMsg, "Add Event Error", JOptionPane.ERROR_MESSAGE);
+        }
+        else{
+            int confirm = JOptionPane.showConfirmDialog(null, "Confirm adding this event?", "Confirm",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE);
+        if(confirm == JOptionPane.YES_OPTION){
+            addEvent(timeInStartFormatted,timeInEndFormatted,timeOutStartFormatted,timeOutEndFormatted);
+        }
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -356,11 +472,11 @@ public class HomePanel extends javax.swing.JFrame {
         jLabel21 = new javax.swing.JLabel();
         jLabel22 = new javax.swing.JLabel();
         addStudentRecordBtn1 = new javax.swing.JButton();
-        jCheckBox13 = new javax.swing.JCheckBox();
-        jCheckBox19 = new javax.swing.JCheckBox();
-        jCheckBox20 = new javax.swing.JCheckBox();
-        jCheckBox21 = new javax.swing.JCheckBox();
-        jCheckBox22 = new javax.swing.JCheckBox();
+        firstYearCb = new javax.swing.JCheckBox();
+        seconYearCB = new javax.swing.JCheckBox();
+        thirdYearCB = new javax.swing.JCheckBox();
+        fourthYearCB = new javax.swing.JCheckBox();
+        allCoursesCB = new javax.swing.JCheckBox();
         customStudents = new javax.swing.JButton();
         jLabel19 = new javax.swing.JLabel();
         Calendar calendar = Calendar.getInstance();
@@ -393,14 +509,14 @@ public class HomePanel extends javax.swing.JFrame {
         timeOutStart = new javax.swing.JSpinner(sm3);
         jLabel23 = new javax.swing.JLabel();
         studentsList = new javax.swing.JDialog();
-        jCheckBox14 = new javax.swing.JCheckBox();
-        jCheckBox15 = new javax.swing.JCheckBox();
-        jCheckBox16 = new javax.swing.JCheckBox();
-        jCheckBox17 = new javax.swing.JCheckBox();
-        jCheckBox18 = new javax.swing.JCheckBox();
-        jCheckBox25 = new javax.swing.JCheckBox();
-        jCheckBox26 = new javax.swing.JCheckBox();
-        jCheckBox27 = new javax.swing.JCheckBox();
+        bscsCB = new javax.swing.JCheckBox();
+        bsitFoodTechCB = new javax.swing.JCheckBox();
+        bsitElectCB = new javax.swing.JCheckBox();
+        bsfCB = new javax.swing.JCheckBox();
+        beedCB = new javax.swing.JCheckBox();
+        bsedMathCB = new javax.swing.JCheckBox();
+        bsedEnglish = new javax.swing.JCheckBox();
+        bsm = new javax.swing.JCheckBox();
         mainPanel = new javax.swing.JPanel();
         ribbonPanel = new javax.swing.JPanel();
         addEventBtn = new javax.swing.JButton();
@@ -594,7 +710,6 @@ public class HomePanel extends javax.swing.JFrame {
         editHeadingDialog.setBackground(new java.awt.Color(255, 255, 255));
         editHeadingDialog.setIconImage(null);
         editHeadingDialog.setMinimumSize(new java.awt.Dimension(264, 193));
-        editHeadingDialog.setPreferredSize(new java.awt.Dimension(264, 193));
 
         jCheckBox1.setSelected(true);
         jCheckBox1.setText("RFID ID");
@@ -857,14 +972,16 @@ public class HomePanel extends javax.swing.JFrame {
         addEvent.setTitle("Add Student");
         addEvent.setBackground(new java.awt.Color(255, 255, 255));
         addEvent.setMinimumSize(new java.awt.Dimension(482, 255));
+        addEvent.setModalExclusionType(null);
+        addEvent.setModalityType(null);
         addEvent.setPreferredSize(new java.awt.Dimension(482, 255));
         addEvent.setSize(new java.awt.Dimension(482, 255));
 
-        jLabel17.setText("Students:");
+        jLabel17.setText("Course:");
 
         jLabel18.setText("Event Name:");
 
-        jLabel20.setText("Year:");
+        jLabel20.setText("Students:");
 
         jLabel21.setText("Time-in:");
 
@@ -877,40 +994,45 @@ public class HomePanel extends javax.swing.JFrame {
             }
         });
 
-        jCheckBox13.setSelected(true);
-        jCheckBox13.setText("1st Year");
-        jCheckBox13.addActionListener(new java.awt.event.ActionListener() {
+        firstYearCb.setSelected(true);
+        firstYearCb.setText("1st Year");
+        firstYearCb.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jCheckBox13ActionPerformed(evt);
+                firstYearCbActionPerformed(evt);
             }
         });
 
-        jCheckBox19.setSelected(true);
-        jCheckBox19.setText("2nd Year");
-        jCheckBox19.addActionListener(new java.awt.event.ActionListener() {
+        seconYearCB.setSelected(true);
+        seconYearCB.setText("2nd Year");
+        seconYearCB.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jCheckBox19ActionPerformed(evt);
+                seconYearCBActionPerformed(evt);
             }
         });
 
-        jCheckBox20.setSelected(true);
-        jCheckBox20.setText("3rd Year");
-        jCheckBox20.addActionListener(new java.awt.event.ActionListener() {
+        thirdYearCB.setSelected(true);
+        thirdYearCB.setText("3rd Year");
+        thirdYearCB.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jCheckBox20ActionPerformed(evt);
+                thirdYearCBActionPerformed(evt);
             }
         });
 
-        jCheckBox21.setSelected(true);
-        jCheckBox21.setText("4th Year");
-        jCheckBox21.addActionListener(new java.awt.event.ActionListener() {
+        fourthYearCB.setSelected(true);
+        fourthYearCB.setText("4th Year");
+        fourthYearCB.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jCheckBox21ActionPerformed(evt);
+                fourthYearCBActionPerformed(evt);
             }
         });
 
-        jCheckBox22.setSelected(true);
-        jCheckBox22.setText("All Courses");
+        allCoursesCB.setSelected(true);
+        allCoursesCB.setText("All Courses");
+        allCoursesCB.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                allCoursesCBMouseClicked(evt);
+            }
+        });
 
         customStudents.setText("Custom");
         customStudents.addActionListener(new java.awt.event.ActionListener() {
@@ -925,6 +1047,16 @@ public class HomePanel extends javax.swing.JFrame {
         SimpleDateFormat format = new SimpleDateFormat("hh:mm a");
         JSpinner.DateEditor de = new JSpinner.DateEditor(timeInStart, format.toPattern());
         timeInStart.setEditor(de);
+        timeInStart.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                timeInStartStateChanged(evt);
+            }
+        });
+        timeInStart.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                timeInStartMouseClicked(evt);
+            }
+        });
 
         SimpleDateFormat format2 = new SimpleDateFormat("hh:mm a");
         JSpinner.DateEditor de2 = new JSpinner.DateEditor(timeInEnd, format.toPattern());
@@ -947,31 +1079,16 @@ public class HomePanel extends javax.swing.JFrame {
             addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(addEventLayout.createSequentialGroup()
                 .addGap(24, 24, 24)
-                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(addStudentRecordBtn1)
+                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(addEventLayout.createSequentialGroup()
                         .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, addEventLayout.createSequentialGroup()
-                                        .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                            .addComponent(jLabel18)
-                                            .addComponent(jLabel17, javax.swing.GroupLayout.PREFERRED_SIZE, 66, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                        .addGap(22, 22, 22))
-                                    .addGroup(addEventLayout.createSequentialGroup()
-                                        .addComponent(jLabel20)
-                                        .addGap(62, 62, 62)))
-                                .addGroup(addEventLayout.createSequentialGroup()
-                                    .addComponent(jLabel21)
-                                    .addGap(45, 45, 45)))
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, addEventLayout.createSequentialGroup()
+                                .addComponent(jLabel21)
+                                .addGap(45, 45, 45))
                             .addGroup(addEventLayout.createSequentialGroup()
                                 .addComponent(jLabel22)
                                 .addGap(39, 39, 39)))
                         .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addGroup(addEventLayout.createSequentialGroup()
-                                .addComponent(jCheckBox22)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(customStudents))
                             .addGroup(addEventLayout.createSequentialGroup()
                                 .addComponent(timeInStart, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -979,58 +1096,78 @@ public class HomePanel extends javax.swing.JFrame {
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(timeInEnd, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addGroup(addEventLayout.createSequentialGroup()
-                                .addComponent(jCheckBox13)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addComponent(jCheckBox19)
-                                .addGap(12, 12, 12)
-                                .addComponent(jCheckBox20)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 9, Short.MAX_VALUE)
-                                .addComponent(jCheckBox21))
-                            .addComponent(eventNameTF)
-                            .addGroup(addEventLayout.createSequentialGroup()
                                 .addComponent(timeOutStart, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(jLabel23, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(timeOutEnd, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)))))
-                .addGap(28, 28, 28))
+                                .addComponent(timeOutEnd, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                    .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                        .addComponent(addStudentRecordBtn1)
+                        .addGroup(addEventLayout.createSequentialGroup()
+                            .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                                .addGroup(addEventLayout.createSequentialGroup()
+                                    .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(jLabel18, javax.swing.GroupLayout.Alignment.TRAILING)
+                                        .addComponent(jLabel17, javax.swing.GroupLayout.PREFERRED_SIZE, 66, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                    .addGap(22, 22, 22))
+                                .addGroup(javax.swing.GroupLayout.Alignment.LEADING, addEventLayout.createSequentialGroup()
+                                    .addComponent(jLabel20, javax.swing.GroupLayout.PREFERRED_SIZE, 49, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
+                            .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                .addGroup(addEventLayout.createSequentialGroup()
+                                    .addComponent(allCoursesCB)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                    .addComponent(customStudents))
+                                .addGroup(addEventLayout.createSequentialGroup()
+                                    .addComponent(firstYearCb)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                    .addComponent(seconYearCB)
+                                    .addGap(12, 12, 12)
+                                    .addComponent(thirdYearCB)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 9, Short.MAX_VALUE)
+                                    .addComponent(fourthYearCB))
+                                .addComponent(eventNameTF)))))
+                .addGap(22, 22, 22))
         );
         addEventLayout.setVerticalGroup(
             addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(addEventLayout.createSequentialGroup()
-                .addGap(28, 28, 28)
+                .addGap(22, 22, 22)
                 .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(eventNameTF, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel18))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel17)
-                    .addComponent(jCheckBox22, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(customStudents))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(jLabel17)
+                        .addComponent(customStudents))
+                    .addComponent(allCoursesCB, javax.swing.GroupLayout.PREFERRED_SIZE, 22, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel20)
-                    .addComponent(jCheckBox13, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jCheckBox19, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jCheckBox20, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jCheckBox21, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel21)
-                    .addComponent(timeInStart, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(seconYearCB, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(thirdYearCB, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(fourthYearCB, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(firstYearCb))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(timeInEnd, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(jLabel19, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                        .addComponent(jLabel19))
+                    .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(jLabel21)
+                        .addComponent(timeInStart, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(timeOutStart, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(timeOutEnd, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(jLabel23, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addComponent(jLabel22))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jLabel23))
+                    .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(timeOutStart, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel22)))
+                .addGap(15, 15, 15)
                 .addComponent(addStudentRecordBtn1)
-                .addContainerGap())
+                .addGap(28, 28, 28))
         );
 
         studentsList.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
@@ -1040,39 +1177,74 @@ public class HomePanel extends javax.swing.JFrame {
         studentsList.setPreferredSize(new java.awt.Dimension(264, 156));
         studentsList.setSize(new java.awt.Dimension(264, 156));
 
-        jCheckBox14.setSelected(true);
-        jCheckBox14.setText("BSCS");
-
-        jCheckBox15.setSelected(true);
-        jCheckBox15.setText("BSIT-Food Tech");
-
-        jCheckBox16.setSelected(true);
-        jCheckBox16.setText("BSIT-Elect");
-
-        jCheckBox17.setSelected(true);
-        jCheckBox17.setText("BSF");
-
-        jCheckBox18.setSelected(true);
-        jCheckBox18.setText("BEEd");
-
-        jCheckBox25.setSelected(true);
-        jCheckBox25.setText("BSED- Math");
-        jCheckBox25.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jCheckBox25ActionPerformed(evt);
+        bscsCB.setSelected(true);
+        bscsCB.setText("BSCS");
+        bscsCB.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                bscsCBMouseClicked(evt);
             }
         });
 
-        jCheckBox26.setSelected(true);
-        jCheckBox26.setText("BSED- English");
-        jCheckBox26.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jCheckBox26ActionPerformed(evt);
+        bsitFoodTechCB.setSelected(true);
+        bsitFoodTechCB.setText("BSIT-Food Tech");
+        bsitFoodTechCB.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                bsitFoodTechCBMouseClicked(evt);
             }
         });
 
-        jCheckBox27.setSelected(true);
-        jCheckBox27.setText("Midwifery");
+        bsitElectCB.setSelected(true);
+        bsitElectCB.setText("BSIT-Elect");
+        bsitElectCB.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                bsitElectCBMouseClicked(evt);
+            }
+        });
+
+        bsfCB.setSelected(true);
+        bsfCB.setText("BSF");
+        bsfCB.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                bsfCBMouseClicked(evt);
+            }
+        });
+
+        beedCB.setSelected(true);
+        beedCB.setText("BEEd");
+        beedCB.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                beedCBMouseClicked(evt);
+            }
+        });
+
+        bsedMathCB.setSelected(true);
+        bsedMathCB.setText("BSED- Math");
+        bsedMathCB.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                bsedMathCBMouseClicked(evt);
+            }
+        });
+        bsedMathCB.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bsedMathCBActionPerformed(evt);
+            }
+        });
+
+        bsedEnglish.setSelected(true);
+        bsedEnglish.setText("BSED- English");
+        bsedEnglish.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                bsedEnglishMouseClicked(evt);
+            }
+        });
+
+        bsm.setSelected(true);
+        bsm.setText("BSM");
+        bsm.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                bsmMouseClicked(evt);
+            }
+        });
 
         javax.swing.GroupLayout studentsListLayout = new javax.swing.GroupLayout(studentsList.getContentPane());
         studentsList.getContentPane().setLayout(studentsListLayout);
@@ -1081,17 +1253,17 @@ public class HomePanel extends javax.swing.JFrame {
             .addGroup(studentsListLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(studentsListLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(jCheckBox17)
-                    .addComponent(jCheckBox15, javax.swing.GroupLayout.DEFAULT_SIZE, 108, Short.MAX_VALUE)
-                    .addComponent(jCheckBox16, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jCheckBox14, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(bsfCB)
+                    .addComponent(bsitFoodTechCB, javax.swing.GroupLayout.DEFAULT_SIZE, 108, Short.MAX_VALUE)
+                    .addComponent(bsitElectCB, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(bscsCB, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 28, Short.MAX_VALUE)
                 .addGroup(studentsListLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(studentsListLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                        .addComponent(jCheckBox26, javax.swing.GroupLayout.DEFAULT_SIZE, 108, Short.MAX_VALUE)
-                        .addComponent(jCheckBox18, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(jCheckBox25, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addComponent(jCheckBox27))
+                        .addComponent(bsedEnglish, javax.swing.GroupLayout.DEFAULT_SIZE, 108, Short.MAX_VALUE)
+                        .addComponent(beedCB, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 85, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(bsedMathCB, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(bsm))
                 .addGap(14, 14, 14))
         );
         studentsListLayout.setVerticalGroup(
@@ -1100,21 +1272,21 @@ public class HomePanel extends javax.swing.JFrame {
                 .addContainerGap()
                 .addGroup(studentsListLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(studentsListLayout.createSequentialGroup()
-                        .addComponent(jCheckBox14)
+                        .addComponent(bscsCB)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jCheckBox16)
+                        .addComponent(bsitElectCB)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jCheckBox15))
+                        .addComponent(bsitFoodTechCB))
                     .addGroup(studentsListLayout.createSequentialGroup()
-                        .addComponent(jCheckBox18)
+                        .addComponent(beedCB)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jCheckBox25)
+                        .addComponent(bsedMathCB)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jCheckBox26)))
+                        .addComponent(bsedEnglish)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(studentsListLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jCheckBox17)
-                    .addComponent(jCheckBox27))
+                    .addComponent(bsfCB)
+                    .addComponent(bsm))
                 .addContainerGap(52, Short.MAX_VALUE))
         );
 
@@ -1503,10 +1675,7 @@ public class HomePanel extends javax.swing.JFrame {
         if(!addIDNoTF.equals("") && !addRFIDTF.equals("") && !addFNameTF.equals("") && !addMNameTF.equals("") && !addLNameTF.equals("")
                && !addAgeTF.equals("") && !addAddressTF.equals("") && !addEmailTF.equals("") && !addYearTF.equals("") && !addCourseTF.equals("")
                && !addBlockTF.equals("") && !addStatusTF.equals("")){
-            if(addStudent()){
-                JOptionPane.showMessageDialog(null, "Student Added Successfully");
-                
-            }
+            addStudent();
         }
     }//GEN-LAST:event_addStudentRecordBtnActionPerformed
 
@@ -1523,37 +1692,99 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void addStudentRecordBtn1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addStudentRecordBtn1ActionPerformed
         // TODO add your handling code here:
+        addStudentDialogConditions();
     }//GEN-LAST:event_addStudentRecordBtn1ActionPerformed
 
-    private void jCheckBox25ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox25ActionPerformed
+    private void bsedMathCBActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bsedMathCBActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_jCheckBox25ActionPerformed
+    }//GEN-LAST:event_bsedMathCBActionPerformed
 
-    private void jCheckBox26ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox26ActionPerformed
+    private void firstYearCbActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_firstYearCbActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_jCheckBox26ActionPerformed
+    }//GEN-LAST:event_firstYearCbActionPerformed
 
-    private void jCheckBox13ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox13ActionPerformed
+    private void seconYearCBActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_seconYearCBActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_jCheckBox13ActionPerformed
+    }//GEN-LAST:event_seconYearCBActionPerformed
 
-    private void jCheckBox19ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox19ActionPerformed
+    private void thirdYearCBActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_thirdYearCBActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_jCheckBox19ActionPerformed
+    }//GEN-LAST:event_thirdYearCBActionPerformed
 
-    private void jCheckBox20ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox20ActionPerformed
+    private void fourthYearCBActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fourthYearCBActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_jCheckBox20ActionPerformed
-
-    private void jCheckBox21ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox21ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jCheckBox21ActionPerformed
+    }//GEN-LAST:event_fourthYearCBActionPerformed
 
     private void customStudentsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_customStudentsActionPerformed
         // TODO add your handling code here:
         studentsList.setVisible(rootPaneCheckingEnabled);
         studentsList.setLocationRelativeTo(null);
     }//GEN-LAST:event_customStudentsActionPerformed
+
+    private void allCoursesCBMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_allCoursesCBMouseClicked
+        // TODO add your handling code here:
+        if(allCoursesCB.isSelected()){
+            bscsCB.setSelected(true);
+            bsitElectCB.setSelected(true);
+            bsitFoodTechCB.setSelected(true);
+            bsfCB.setSelected(true);
+            beedCB.setSelected(true);
+            bsedEnglish.setSelected(true);
+            bsedMathCB.setSelected(true);
+            bsm.setSelected(true);
+        }
+    }//GEN-LAST:event_allCoursesCBMouseClicked
+
+    private void bscsCBMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_bscsCBMouseClicked
+        // TODO add your handling code here:
+        checkStudentList();
+    }//GEN-LAST:event_bscsCBMouseClicked
+
+    private void bsitElectCBMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_bsitElectCBMouseClicked
+        // TODO add your handling code here:
+        checkStudentList();
+
+    }//GEN-LAST:event_bsitElectCBMouseClicked
+
+    private void bsitFoodTechCBMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_bsitFoodTechCBMouseClicked
+        // TODO add your handling code here:
+        checkStudentList();
+    }//GEN-LAST:event_bsitFoodTechCBMouseClicked
+
+    private void bsfCBMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_bsfCBMouseClicked
+        // TODO add your handling code here:
+        checkStudentList();
+    }//GEN-LAST:event_bsfCBMouseClicked
+
+    private void beedCBMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_beedCBMouseClicked
+        // TODO add your handling code here:
+        checkStudentList();
+    }//GEN-LAST:event_beedCBMouseClicked
+
+    private void bsedMathCBMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_bsedMathCBMouseClicked
+        // TODO add your handling code here:
+        checkStudentList();
+    }//GEN-LAST:event_bsedMathCBMouseClicked
+
+    private void bsedEnglishMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_bsedEnglishMouseClicked
+        // TODO add your handling code here:
+        checkStudentList();
+    }//GEN-LAST:event_bsedEnglishMouseClicked
+
+    private void bsmMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_bsmMouseClicked
+        // TODO add your handling code here:
+        checkStudentList();
+    }//GEN-LAST:event_bsmMouseClicked
+
+    private void timeInStartMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_timeInStartMouseClicked
+        // TODO add your handling code here:
+        //System.out.println("time in"+ timeInStart.toString());
+    }//GEN-LAST:event_timeInStartMouseClicked
+
+    private void timeInStartStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_timeInStartStateChanged
+        // TODO add your handling code here:
+        
+    }//GEN-LAST:event_timeInStartStateChanged
 
     /**
      * @param args the command line arguments
@@ -1610,7 +1841,16 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JButton addStudentRecordBtn1;
     private javax.swing.JDialog addStudentsDialog;
     private javax.swing.JTextField addYearTF;
+    private javax.swing.JCheckBox allCoursesCB;
     public javax.swing.JLabel arduinoStatus;
+    private javax.swing.JCheckBox beedCB;
+    private javax.swing.JCheckBox bscsCB;
+    private javax.swing.JCheckBox bsedEnglish;
+    private javax.swing.JCheckBox bsedMathCB;
+    private javax.swing.JCheckBox bsfCB;
+    private javax.swing.JCheckBox bsitElectCB;
+    private javax.swing.JCheckBox bsitFoodTechCB;
+    private javax.swing.JCheckBox bsm;
     private javax.swing.JButton classScheduleBtn;
     private javax.swing.JButton customStudents;
     private javax.swing.JLabel dateTimeLabel;
@@ -1620,25 +1860,14 @@ public class HomePanel extends javax.swing.JFrame {
     public javax.swing.JToggleButton enableAttendanceBtn;
     private javax.swing.JLabel eventLabel;
     private javax.swing.JTextField eventNameTF;
+    private javax.swing.JCheckBox firstYearCb;
+    private javax.swing.JCheckBox fourthYearCB;
     private javax.swing.JButton importCSVBtn;
     private javax.swing.JCheckBox jCheckBox1;
     private javax.swing.JCheckBox jCheckBox10;
     private javax.swing.JCheckBox jCheckBox11;
     private javax.swing.JCheckBox jCheckBox12;
-    private javax.swing.JCheckBox jCheckBox13;
-    private javax.swing.JCheckBox jCheckBox14;
-    private javax.swing.JCheckBox jCheckBox15;
-    private javax.swing.JCheckBox jCheckBox16;
-    private javax.swing.JCheckBox jCheckBox17;
-    private javax.swing.JCheckBox jCheckBox18;
-    private javax.swing.JCheckBox jCheckBox19;
     private javax.swing.JCheckBox jCheckBox2;
-    private javax.swing.JCheckBox jCheckBox20;
-    private javax.swing.JCheckBox jCheckBox21;
-    private javax.swing.JCheckBox jCheckBox22;
-    private javax.swing.JCheckBox jCheckBox25;
-    private javax.swing.JCheckBox jCheckBox26;
-    private javax.swing.JCheckBox jCheckBox27;
     private javax.swing.JCheckBox jCheckBox3;
     private javax.swing.JCheckBox jCheckBox4;
     private javax.swing.JCheckBox jCheckBox5;
@@ -1687,11 +1916,13 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JPanel recordsTablePanel;
     private javax.swing.JPanel ribbonPanel;
     private javax.swing.JTextField searchTF;
+    private javax.swing.JCheckBox seconYearCB;
     private javax.swing.JButton settingsBtn;
     private javax.swing.JComboBox<String> sortCB;
     private javax.swing.JPanel statisticsPanel;
     private javax.swing.JTable studentPerCourseTable;
     private javax.swing.JDialog studentsList;
+    private javax.swing.JCheckBox thirdYearCB;
     private javax.swing.JSpinner timeInEnd;
     private javax.swing.JSpinner timeInStart;
     private javax.swing.JSpinner timeOutEnd;
