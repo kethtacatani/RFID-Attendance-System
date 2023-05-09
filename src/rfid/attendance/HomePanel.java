@@ -111,6 +111,7 @@ public class HomePanel extends javax.swing.JFrame {
                 time = time.replaceAll("am", "AM").replaceAll("pm", "PM");
                 dateTimeLabel.setText(longDate+" | "+time );
                 System.out.println("updating "+longDate+" | "+time );
+                
             }
         });
         timer.setInitialDelay(0);
@@ -126,13 +127,24 @@ public class HomePanel extends javax.swing.JFrame {
     
     public void preProcess(){
         //paused here
-//        SELECT MAX(CASE WHEN trueFalse = 'true' THEN date END) AS date
-//        FROM myTable
-//        WHERE trueFalse = 'true';
 
-//        SELECT 1
-//        FROM your_table_name
-//        WHERE column_name = 'your_value';   if a value exists in a table column
+    String[][] records = qp.getAllRecord("SELECT 1 FROM `misctable` WHERE `name` =  'recentEvent'");
+    if(records!=null){
+        String recentDate = qp.getSpecificField("Select `c2` from `misctable` WHERE `name`='recentEvent'");
+        System.out.println("date is "+recentDate);
+        if(recentDate.equals(LocalDate.now().format(dateFormatter))){
+            String[] recentInfo = qp.getSpecificRow("Select * from `events` where `date`='"+recentDate+"'");
+            //to be continued
+        }
+        
+    }
+    else{
+        
+        if(qp.executeUpdate("Insert into `misctable`  (`name`,`c2`) values ('recentEvent','"+LocalDate.now().format(dateFormatter)+"')")){
+            System.out.println("Isnert Successful event "+LocalDate.now().format(dateFormatter));
+        }
+    }
+       
            }
     public void updateStudentCount(){
         System.out.println(scanType.toString());
