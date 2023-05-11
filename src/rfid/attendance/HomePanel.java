@@ -79,6 +79,10 @@ public class HomePanel extends javax.swing.JFrame {
     
     String event = "School Day";
     String studentsInvolved = "All Students";
+    String timeInStart = "";
+    String timeInEnd = "";
+    String timeOutStart = "";
+    String timeOutEnd = "";
     String attendanceStatus="";
     String attendanceType="";
     int totalPresentCount = 0;
@@ -89,12 +93,14 @@ public class HomePanel extends javax.swing.JFrame {
     QueryProcessor qp;
     public HomePanel() {
         qp = new QueryProcessor();
-        initComponents();
+        initComponents();   
+        preProcess();
         displayRecentScans();
         displayManageStudentTable();
-        preProcess();
         
-        eventLabel.setText("Event: "+event);
+        
+        
+        eventLabel.setText(event);
         
         timer = new Timer(30000, new ActionListener() {
             @Override
@@ -117,6 +123,8 @@ public class HomePanel extends javax.swing.JFrame {
         timer.setInitialDelay(0);
         timer.start();
         updateStudentCount();
+        displayStatistics(LocalDate.now().format(dateFormatter));
+        
         
 
         // Start the timer
@@ -128,24 +136,48 @@ public class HomePanel extends javax.swing.JFrame {
     public void preProcess(){
         //paused here
 
-    String[][] records = qp.getAllRecord("SELECT 1 FROM `misctable` WHERE `name` =  'recentEvent'");
-    if(records!=null){
-        String recentDate = qp.getSpecificField("Select `c2` from `misctable` WHERE `name`='recentEvent'");
-        System.out.println("date is "+recentDate);
-        if(recentDate.equals(LocalDate.now().format(dateFormatter))){
-            String[] recentInfo = qp.getSpecificRow("Select * from `events` where `date`='"+recentDate+"'");
-            //to be continued
+        String[][] records = qp.getAllRecord("SELECT 1 FROM `events` WHERE `recent_event` =  'recentEvent'");
+        if(records!=null){
+            String[] recentInfo = qp.getSpecificRow("Select `event_name`,`date` from `events` WHERE `recent_event`='recentEvent'");
+            System.out.println("date is "+recentInfo);
+            if(recentInfo[1].equals(LocalDate.now().format(dateFormatter))){
+                //if recentEvent date matched the current date
+                String query = "Select `rfid_id`, TIME_FORMAT(`time_in`, '%h:%i %p') AS formatted_time_in,"
+                    + "CASE WHEN time_out IS NULL THEN 'Time-in' ELSE 'Time-out' END AS time_status from `student_record`";
+                Object row[][]=qp.getAllRecord(query);
+                if(row!=null){
+                    for (int i = 0; i < row.length; i++) {
+                        scannedRFID.add(row[i][0].toString());
+                        scanTime.add(row[i][1].toString());
+                        scanType.add(row[i][2].toString());
+                    }
+                }
+                event = recentInfo[0];
+                eventLabel.setText(event);
+                }
+            else{
+                // if recentEvent date did not match the current date
+                addEvent(null, null, null, null,"recentEvent", event+" "+LocalDate.now().format(DateTimeFormatter.ofPattern("YY-MM-dd")));
+                
+            }
         }
-        
-    }
-    else{
-        
-        if(qp.executeUpdate("Insert into `misctable`  (`name`,`c2`) values ('recentEvent','"+LocalDate.now().format(dateFormatter)+"')")){
-            System.out.println("Isnert Successful event "+LocalDate.now().format(dateFormatter));
+        else{
+            //if no recentEvent exist or database in empty
+            addEvent(null, null, null, null,"recentEvent", event+" "+LocalDate.now().format(DateTimeFormatter.ofPattern("YY-MM-dd")));
+            System.out.println("adding recent");
         }
+
     }
-       
-           }
+    
+    public boolean updateRecentEvent(){
+        String[][] records = qp.getAllRecord("SELECT 1 FROM `events` WHERE `recent_event` =  'recentEvent'");
+        
+        if(qp.executeUpdate("UPDATE `events` SET `recent_event`= null WHERE `recent_event` = 'recentEvent'") || records == null){
+            System.out.println("Update Successful event "+LocalDate.now().format(dateFormatter) );
+            return true;
+        }
+        return false;
+    }
     public void updateStudentCount(){
         System.out.println(scanType.toString());
         totalPresent1.setText(scannedRFID.size()+"");
@@ -153,11 +185,17 @@ public class HomePanel extends javax.swing.JFrame {
         timedOut.setText("Timed-out: "+scanType.stream().filter(element ->  element.equals("Time-out")).count()+"");
     }
     
-    public  void diplayMainPanel(){
+    public  void displayStatistics(String date){
         int totalStudents = qp.getAllRecord("Select `student_id` from `student_info`").length;
+        if(!event.equals("School Day")){
+            
+        }    
+        
         totalPresent.setText("/"+totalStudents);
         
-        courseCount = qp.getAllRecord("SELECT `course`, COUNT(*) AS count FROM `student_info` GROUP BY `course` ");
+        courseCount = qp.getAllRecord("SELECT `student_info`.`course`, COUNT(`student_record`.`student_id`) AS count FROM `student_info` "
+                + "LEFT JOIN `student_record` ON `student_info`.`student_id` = `student_record`.`student_id` "
+                + "WHERE `student_record`.`date` = '"+date+"'  GROUP BY `student_info`.`course`;");
         courseCountModel = new DefaultTableModel(courseCount,courseColumn);
         studentPerCourseTable.setModel(courseCountModel);
         DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
@@ -165,18 +203,6 @@ public class HomePanel extends javax.swing.JFrame {
         studentPerCourseTable.getColumnModel().getColumn(1).setCellRenderer(rightRenderer);
         studentPerCourseTable.setShowGrid(false);
         studentPerCourseTable.getTableHeader().setVisible(false);
-        
-        String query = "Select `rfid_id`, TIME_FORMAT(`time_in`, '%h:%i %p') AS formatted_time_in,"
-                + "CASE WHEN time_out IS NULL THEN 'Time-in' ELSE 'Time-out' END AS time_status from `student_record`";
-        Object row[][]=qp.getAllRecord(query);
-        if(row!=null){
-            for (int i = 0; i < row.length; i++) {
-                scannedRFID.add(row[i][0].toString());
-                scanTime.add(row[i][1].toString());
-                scanType.add(row[i][2].toString());
-            }
-            System.out.println(scanTime.toString()+"\n sd"+scannedRFID.toString());
-        }
         
     }
     
@@ -196,7 +222,8 @@ public class HomePanel extends javax.swing.JFrame {
         
         String query = "SELECT `student_info`.`student_id`, `student_info`.`last_name`, `student_info`.`first_name`, LEFT(`middle_name`, 1) AS `first_letter1`,"
                 + "CASE WHEN time_out IS NULL THEN 'Time-in' ELSE 'Time-out' END AS time_status, TIME_FORMAT(`student_record`.`time_in`, '%h:%i %p') AS formatted_time_in,"
-                + "CASE WHEN `student_record`.`status` IS NULL THEN '' ELSE '"+attendanceStatus+"' END AS student_status FROM `student_record`, `student_info` WHERE `student_record`.`student_id` = `student_info`.`student_id`";
+                + "CASE WHEN `student_record`.`status` IS NULL THEN '' ELSE '"+attendanceStatus+"' END AS student_status FROM `student_record`, `student_info` WHERE `student_record`.`student_id` = `student_info`.`student_id` "
+                + "AND `student_record`.`event` = '"+event+"' AND `student_record`.`date` = '"+LocalDate.now().format(dateFormatter)+"'";
         System.out.println(query);
         tablerow = qp.getAllRecord(query);
         model = new DefaultTableModel(tablerow,tablecol);
@@ -243,9 +270,9 @@ public class HomePanel extends javax.swing.JFrame {
             firstName= result[2];
             middleInit = result[3].substring(0, 1);
             status= null;
-            course = result[9];
-            year= result[8];
-            block= result[10];
+            course = result[10];
+            year= result[9];
+            block= result[11];
             String query1="";
             System.out.println(scannedRFID.toString());
             if (!scannedRFID.contains(rfidId)){
@@ -319,7 +346,14 @@ public class HomePanel extends javax.swing.JFrame {
 
     }
     
-    public void addEvent(String timeInStart,String timeInEnd,String timeOutStart,String timeOutEnd){
+    public boolean addEvent(String timeInStart,String timeInEnd,String timeOutStart,String timeOutEnd, String recentEvent, String event){
+        String timeIn = "'"+timeInStart+timeInEnd+"'";
+        String timeOut = "'"+timeOutStart+timeOutEnd+"'";
+        if (timeInStart == null && timeInEnd == null && timeOutStart==null && timeOutEnd==null){
+            timeIn=null;
+            timeOut=null;
+        }
+        
         String course="", year="";
         if(bscsCB.isSelected()){
             course += bscsCB.getText()+",";
@@ -358,10 +392,11 @@ public class HomePanel extends javax.swing.JFrame {
             year += "4,";
         }
         
-        if(qp.executeUpdate("Insert into `events`( `date`, `event_name`, `students_involved`, `year`, `time_in_range`, `time_out_range`) values ('"+date+"','"+eventNameTF.getText()+"','"+course
-            +"','"+year+"','"+timeInStart+"-"+timeInEnd+"','"+timeOutStart+"-"+timeOutEnd+"')")){
-            JOptionPane.showMessageDialog(null, "Event Added Successfully");
+        if(updateRecentEvent()&&qp.executeUpdate("Insert into `events`( `date`, `event_name`, `students_involved`, `year`, `time_in_range`, `time_out_range`,`recent_event`) values ('"+LocalDate.now().format(dateFormatter)+"','"+event+"','"+course
+            +"','"+year+"',"+timeIn+","+timeOut+",'"+recentEvent+"')" )){
+            return true;
         }
+        return false;
     }
     
     public void checkStudentList(){
@@ -377,10 +412,10 @@ public class HomePanel extends javax.swing.JFrame {
         DateFormatSymbols symbols = new DateFormatSymbols();
         symbols.setAmPmStrings(new String[]{"am", "pm"});
         SimpleDateFormat dateFormat = new SimpleDateFormat("h:mm a", symbols);
-        String timeInStartFormatted = dateFormat.format(timeInStart.getValue());
-        String timeInEndFormatted = dateFormat.format(timeInEnd.getValue());
-        String timeOutStartFormatted = dateFormat.format(timeOutStart.getValue());
-        String timeOutEndFormatted = dateFormat.format(timeOutEnd.getValue());
+        String timeInStartFormatted = dateFormat.format(timeInStartSpinner.getValue());
+        String timeInEndFormatted = dateFormat.format(timeInEndSpinner.getValue());
+        String timeOutStartFormatted = dateFormat.format(timeOutStartSpinner.getValue());
+        String timeOutEndFormatted = dateFormat.format(timeOutEndSpinner.getValue());
         String errorMsg="";
         
         if(eventNameTF.equals("")|| timedifference(timeInEndFormatted, timeInStartFormatted)<0 
@@ -413,7 +448,18 @@ public class HomePanel extends javax.swing.JFrame {
         else{
             int confirm = JOptionPane.showConfirmDialog(null, "Confirm adding this event?", "Confirm",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE);
         if(confirm == JOptionPane.YES_OPTION){
-            addEvent(timeInStartFormatted,timeInEndFormatted,timeOutStartFormatted,timeOutEndFormatted);
+            if(addEvent(timeInStartFormatted,timeInEndFormatted,timeOutStartFormatted,timeOutEndFormatted,"recentEvent", eventNameTF.getText())){
+            JOptionPane.showMessageDialog(null, "Event Added Successfully");
+            preProcess();
+            displayRecentScans();
+            displayManageStudentTable();
+            addEvent.setVisible(false);
+            }
+            timeInStart = timeInStartFormatted;
+            timeInEnd = timeInEndFormatted;
+            timeOutStart = timeOutStartFormatted;
+            timeOutEnd = timeOutEndFormatted;
+            
         }
         }
     }
@@ -497,28 +543,28 @@ public class HomePanel extends javax.swing.JFrame {
         Date startTime = calendar.getTime();
 
         SpinnerDateModel sm = new SpinnerDateModel(startTime, null, null, Calendar.HOUR_OF_DAY);
-        timeInStart = new javax.swing.JSpinner(sm);
+        timeInStartSpinner = new javax.swing.JSpinner(sm);
         Calendar calendar2 = Calendar.getInstance();
         calendar2.set(Calendar.HOUR_OF_DAY, 8);
         calendar2.set(Calendar.MINUTE, 0);
         Date startTime2 = calendar2.getTime();
 
         SpinnerDateModel sm2 = new SpinnerDateModel(startTime2, null, null, Calendar.HOUR_OF_DAY);
-        timeInEnd = new javax.swing.JSpinner(sm2);
+        timeInEndSpinner = new javax.swing.JSpinner(sm2);
         Calendar calendar4 = Calendar.getInstance();
         calendar4.set(Calendar.HOUR_OF_DAY, 17);
         calendar4.set(Calendar.MINUTE, 0);
         Date startTime4 = calendar4.getTime();
 
         SpinnerDateModel sm4 = new SpinnerDateModel(startTime4, null, null, Calendar.HOUR_OF_DAY);
-        timeOutEnd = new javax.swing.JSpinner(sm4);
+        timeOutEndSpinner = new javax.swing.JSpinner(sm4);
         Calendar calendar3 = Calendar.getInstance();
         calendar3.set(Calendar.HOUR_OF_DAY, 16);
         calendar3.set(Calendar.MINUTE, 30);
         Date startTime3 = calendar3.getTime();
 
         SpinnerDateModel sm3 = new SpinnerDateModel(startTime3, null, null, Calendar.HOUR_OF_DAY);
-        timeOutStart = new javax.swing.JSpinner(sm3);
+        timeOutStartSpinner = new javax.swing.JSpinner(sm3);
         jLabel23 = new javax.swing.JLabel();
         studentsList = new javax.swing.JDialog();
         bscsCB = new javax.swing.JCheckBox();
@@ -819,7 +865,6 @@ public class HomePanel extends javax.swing.JFrame {
         addStudentsDialog.setTitle("Add Student");
         addStudentsDialog.setBackground(new java.awt.Color(255, 255, 255));
         addStudentsDialog.setMinimumSize(new java.awt.Dimension(431, 446));
-        addStudentsDialog.setPreferredSize(new java.awt.Dimension(431, 446));
         addStudentsDialog.setSize(new java.awt.Dimension(431, 446));
 
         jLabel3.setText("RFID ID:");
@@ -986,7 +1031,6 @@ public class HomePanel extends javax.swing.JFrame {
         addEvent.setMinimumSize(new java.awt.Dimension(482, 255));
         addEvent.setModalExclusionType(null);
         addEvent.setModalityType(null);
-        addEvent.setPreferredSize(new java.awt.Dimension(482, 255));
         addEvent.setSize(new java.awt.Dimension(482, 255));
 
         jLabel17.setText("Course:");
@@ -1057,30 +1101,30 @@ public class HomePanel extends javax.swing.JFrame {
         jLabel19.setText("to");
 
         SimpleDateFormat format = new SimpleDateFormat("hh:mm a");
-        JSpinner.DateEditor de = new JSpinner.DateEditor(timeInStart, format.toPattern());
-        timeInStart.setEditor(de);
-        timeInStart.addChangeListener(new javax.swing.event.ChangeListener() {
+        JSpinner.DateEditor de = new JSpinner.DateEditor(timeInStartSpinner, format.toPattern());
+        timeInStartSpinner.setEditor(de);
+        timeInStartSpinner.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                timeInStartStateChanged(evt);
+                timeInStartSpinnerStateChanged(evt);
             }
         });
-        timeInStart.addMouseListener(new java.awt.event.MouseAdapter() {
+        timeInStartSpinner.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
-                timeInStartMouseClicked(evt);
+                timeInStartSpinnerMouseClicked(evt);
             }
         });
 
         SimpleDateFormat format2 = new SimpleDateFormat("hh:mm a");
-        JSpinner.DateEditor de2 = new JSpinner.DateEditor(timeInEnd, format.toPattern());
-        timeInEnd.setEditor(de2);
+        JSpinner.DateEditor de2 = new JSpinner.DateEditor(timeInEndSpinner, format.toPattern());
+        timeInEndSpinner.setEditor(de2);
 
         SimpleDateFormat format4 = new SimpleDateFormat("hh:mm a");
-        JSpinner.DateEditor de4 = new JSpinner.DateEditor(timeOutEnd, format4.toPattern());
-        timeOutEnd.setEditor(de4);
+        JSpinner.DateEditor de4 = new JSpinner.DateEditor(timeOutEndSpinner, format4.toPattern());
+        timeOutEndSpinner.setEditor(de4);
 
         SimpleDateFormat format3 = new SimpleDateFormat("hh:mm a");
-        JSpinner.DateEditor de3 = new JSpinner.DateEditor(timeOutStart, format3.toPattern());
-        timeOutStart.setEditor(de3);
+        JSpinner.DateEditor de3 = new JSpinner.DateEditor(timeOutStartSpinner, format3.toPattern());
+        timeOutStartSpinner.setEditor(de3);
 
         jLabel23.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
         jLabel23.setText("to");
@@ -1102,17 +1146,17 @@ public class HomePanel extends javax.swing.JFrame {
                                 .addGap(39, 39, 39)))
                         .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addGroup(addEventLayout.createSequentialGroup()
-                                .addComponent(timeInStart, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(timeInStartSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(jLabel19, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(timeInEnd, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addComponent(timeInEndSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addGroup(addEventLayout.createSequentialGroup()
-                                .addComponent(timeOutStart, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(timeOutStartSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(jLabel23, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(timeOutEnd, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                                .addComponent(timeOutEndSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE))))
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                         .addComponent(addStudentRecordBtn1)
                         .addGroup(addEventLayout.createSequentialGroup()
@@ -1164,18 +1208,18 @@ public class HomePanel extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(timeInEnd, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(timeInEndSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(jLabel19))
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(jLabel21)
-                        .addComponent(timeInStart, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addComponent(timeInStartSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(timeOutEnd, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(timeOutEndSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(jLabel23))
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(timeOutStart, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(timeOutStartSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(jLabel22)))
                 .addGap(15, 15, 15)
                 .addComponent(addStudentRecordBtn1)
@@ -1186,7 +1230,6 @@ public class HomePanel extends javax.swing.JFrame {
         studentsList.setBackground(new java.awt.Color(255, 255, 255));
         studentsList.setIconImage(null);
         studentsList.setMinimumSize(new java.awt.Dimension(264, 156));
-        studentsList.setPreferredSize(new java.awt.Dimension(264, 156));
         studentsList.setSize(new java.awt.Dimension(264, 156));
 
         bscsCB.setSelected(true);
@@ -1788,15 +1831,15 @@ public class HomePanel extends javax.swing.JFrame {
         checkStudentList();
     }//GEN-LAST:event_bsmMouseClicked
 
-    private void timeInStartMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_timeInStartMouseClicked
+    private void timeInStartSpinnerMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_timeInStartSpinnerMouseClicked
         // TODO add your handling code here:
         //System.out.println("time in"+ timeInStart.toString());
-    }//GEN-LAST:event_timeInStartMouseClicked
+    }//GEN-LAST:event_timeInStartSpinnerMouseClicked
 
-    private void timeInStartStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_timeInStartStateChanged
+    private void timeInStartSpinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_timeInStartSpinnerStateChanged
         // TODO add your handling code here:
         
-    }//GEN-LAST:event_timeInStartStateChanged
+    }//GEN-LAST:event_timeInStartSpinnerStateChanged
 
     /**
      * @param args the command line arguments
@@ -1935,10 +1978,10 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JTable studentPerCourseTable;
     private javax.swing.JDialog studentsList;
     private javax.swing.JCheckBox thirdYearCB;
-    private javax.swing.JSpinner timeInEnd;
-    private javax.swing.JSpinner timeInStart;
-    private javax.swing.JSpinner timeOutEnd;
-    private javax.swing.JSpinner timeOutStart;
+    private javax.swing.JSpinner timeInEndSpinner;
+    private javax.swing.JSpinner timeInStartSpinner;
+    private javax.swing.JSpinner timeOutEndSpinner;
+    private javax.swing.JSpinner timeOutStartSpinner;
     private javax.swing.JLabel timedIn;
     private javax.swing.JLabel timedOut;
     private javax.swing.JLabel totalPresent;

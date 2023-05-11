@@ -754,18 +754,18 @@
                           </Group>
                           <Group type="103" groupAlignment="0" max="-2" attributes="0">
                               <Group type="102" alignment="0" attributes="0">
-                                  <Component id="timeInStart" min="-2" pref="73" max="-2" attributes="0"/>
+                                  <Component id="timeInStartSpinner" min="-2" pref="73" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
                                   <Component id="jLabel19" min="-2" pref="16" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
-                                  <Component id="timeInEnd" min="-2" pref="73" max="-2" attributes="0"/>
+                                  <Component id="timeInEndSpinner" min="-2" pref="73" max="-2" attributes="0"/>
                               </Group>
                               <Group type="102" alignment="0" attributes="0">
-                                  <Component id="timeOutStart" min="-2" pref="73" max="-2" attributes="0"/>
+                                  <Component id="timeOutStartSpinner" min="-2" pref="73" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
                                   <Component id="jLabel23" min="-2" pref="16" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
-                                  <Component id="timeOutEnd" min="-2" pref="73" max="-2" attributes="0"/>
+                                  <Component id="timeOutEndSpinner" min="-2" pref="73" max="-2" attributes="0"/>
                               </Group>
                           </Group>
                       </Group>
@@ -836,22 +836,22 @@
                   <EmptySpace type="unrelated" max="-2" attributes="0"/>
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Group type="103" alignment="0" groupAlignment="3" attributes="0">
-                          <Component id="timeInEnd" alignment="3" min="-2" max="-2" attributes="0"/>
+                          <Component id="timeInEndSpinner" alignment="3" min="-2" max="-2" attributes="0"/>
                           <Component id="jLabel19" alignment="3" min="-2" max="-2" attributes="0"/>
                       </Group>
                       <Group type="103" alignment="0" groupAlignment="3" attributes="0">
                           <Component id="jLabel21" alignment="3" min="-2" max="-2" attributes="0"/>
-                          <Component id="timeInStart" alignment="3" min="-2" max="-2" attributes="0"/>
+                          <Component id="timeInStartSpinner" alignment="3" min="-2" max="-2" attributes="0"/>
                       </Group>
                   </Group>
                   <EmptySpace max="-2" attributes="0"/>
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Group type="103" alignment="0" groupAlignment="3" attributes="0">
-                          <Component id="timeOutEnd" alignment="3" min="-2" max="-2" attributes="0"/>
+                          <Component id="timeOutEndSpinner" alignment="3" min="-2" max="-2" attributes="0"/>
                           <Component id="jLabel23" alignment="3" min="-2" max="-2" attributes="0"/>
                       </Group>
                       <Group type="103" alignment="0" groupAlignment="3" attributes="0">
-                          <Component id="timeOutStart" alignment="3" min="-2" max="-2" attributes="0"/>
+                          <Component id="timeOutStartSpinner" alignment="3" min="-2" max="-2" attributes="0"/>
                           <Component id="jLabel22" alignment="3" min="-2" max="-2" attributes="0"/>
                       </Group>
                   </Group>
@@ -959,36 +959,36 @@
             <Property name="text" type="java.lang.String" value="to"/>
           </Properties>
         </Component>
-        <Component class="javax.swing.JSpinner" name="timeInStart">
+        <Component class="javax.swing.JSpinner" name="timeInStartSpinner">
           <Events>
-            <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="timeInStartStateChanged"/>
-            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="timeInStartMouseClicked"/>
+            <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="timeInStartSpinnerStateChanged"/>
+            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="timeInStartSpinnerMouseClicked"/>
           </Events>
           <AuxValues>
             <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new javax.swing.JSpinner(sm)"/>
             <AuxValue name="JavaCodeGenerator_CreateCodePre" type="java.lang.String" value="Calendar calendar = Calendar.getInstance();&#xa;calendar.set(Calendar.HOUR_OF_DAY, 7);&#xa;calendar.set(Calendar.MINUTE, 30);&#xa;Date startTime = calendar.getTime();&#xa;&#xa;SpinnerDateModel sm = new SpinnerDateModel(startTime, null, null, Calendar.HOUR_OF_DAY);"/>
-            <AuxValue name="JavaCodeGenerator_InitCodePre" type="java.lang.String" value="SimpleDateFormat format = new SimpleDateFormat(&quot;hh:mm a&quot;);&#xa;JSpinner.DateEditor de = new JSpinner.DateEditor(timeInStart, format.toPattern());&#xa;timeInStart.setEditor(de);"/>
+            <AuxValue name="JavaCodeGenerator_InitCodePre" type="java.lang.String" value="SimpleDateFormat format = new SimpleDateFormat(&quot;hh:mm a&quot;);&#xa;JSpinner.DateEditor de = new JSpinner.DateEditor(timeInStartSpinner, format.toPattern());&#xa;timeInStartSpinner.setEditor(de);"/>
           </AuxValues>
         </Component>
-        <Component class="javax.swing.JSpinner" name="timeInEnd">
+        <Component class="javax.swing.JSpinner" name="timeInEndSpinner">
           <AuxValues>
             <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new javax.swing.JSpinner(sm2)"/>
             <AuxValue name="JavaCodeGenerator_CreateCodePre" type="java.lang.String" value="Calendar calendar2 = Calendar.getInstance();&#xa;calendar2.set(Calendar.HOUR_OF_DAY, 8);&#xa;calendar2.set(Calendar.MINUTE, 0);&#xa;Date startTime2 = calendar2.getTime();&#xa;&#xa;SpinnerDateModel sm2 = new SpinnerDateModel(startTime2, null, null, Calendar.HOUR_OF_DAY);"/>
-            <AuxValue name="JavaCodeGenerator_InitCodePre" type="java.lang.String" value="SimpleDateFormat format2 = new SimpleDateFormat(&quot;hh:mm a&quot;);&#xa;JSpinner.DateEditor de2 = new JSpinner.DateEditor(timeInEnd, format.toPattern());&#xa;timeInEnd.setEditor(de2);"/>
+            <AuxValue name="JavaCodeGenerator_InitCodePre" type="java.lang.String" value="SimpleDateFormat format2 = new SimpleDateFormat(&quot;hh:mm a&quot;);&#xa;JSpinner.DateEditor de2 = new JSpinner.DateEditor(timeInEndSpinner, format.toPattern());&#xa;timeInEndSpinner.setEditor(de2);"/>
           </AuxValues>
         </Component>
-        <Component class="javax.swing.JSpinner" name="timeOutEnd">
+        <Component class="javax.swing.JSpinner" name="timeOutEndSpinner">
           <AuxValues>
             <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new javax.swing.JSpinner(sm4)"/>
             <AuxValue name="JavaCodeGenerator_CreateCodePre" type="java.lang.String" value="Calendar calendar4 = Calendar.getInstance();&#xa;calendar4.set(Calendar.HOUR_OF_DAY, 17);&#xa;calendar4.set(Calendar.MINUTE, 0);&#xa;Date startTime4 = calendar4.getTime();&#xa;&#xa;SpinnerDateModel sm4 = new SpinnerDateModel(startTime4, null, null, Calendar.HOUR_OF_DAY);"/>
-            <AuxValue name="JavaCodeGenerator_InitCodePre" type="java.lang.String" value="SimpleDateFormat format4 = new SimpleDateFormat(&quot;hh:mm a&quot;);&#xa;JSpinner.DateEditor de4 = new JSpinner.DateEditor(timeOutEnd, format4.toPattern());&#xa;timeOutEnd.setEditor(de4);"/>
+            <AuxValue name="JavaCodeGenerator_InitCodePre" type="java.lang.String" value="SimpleDateFormat format4 = new SimpleDateFormat(&quot;hh:mm a&quot;);&#xa;JSpinner.DateEditor de4 = new JSpinner.DateEditor(timeOutEndSpinner, format4.toPattern());&#xa;timeOutEndSpinner.setEditor(de4);"/>
           </AuxValues>
         </Component>
-        <Component class="javax.swing.JSpinner" name="timeOutStart">
+        <Component class="javax.swing.JSpinner" name="timeOutStartSpinner">
           <AuxValues>
             <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new javax.swing.JSpinner(sm3)"/>
             <AuxValue name="JavaCodeGenerator_CreateCodePre" type="java.lang.String" value="Calendar calendar3 = Calendar.getInstance();&#xa;calendar3.set(Calendar.HOUR_OF_DAY, 16);&#xa;calendar3.set(Calendar.MINUTE, 30);&#xa;Date startTime3 = calendar3.getTime();&#xa;&#xa;SpinnerDateModel sm3 = new SpinnerDateModel(startTime3, null, null, Calendar.HOUR_OF_DAY);"/>
-            <AuxValue name="JavaCodeGenerator_InitCodePre" type="java.lang.String" value="SimpleDateFormat format3 = new SimpleDateFormat(&quot;hh:mm a&quot;);&#xa;JSpinner.DateEditor de3 = new JSpinner.DateEditor(timeOutStart, format3.toPattern());&#xa;timeOutStart.setEditor(de3);"/>
+            <AuxValue name="JavaCodeGenerator_InitCodePre" type="java.lang.String" value="SimpleDateFormat format3 = new SimpleDateFormat(&quot;hh:mm a&quot;);&#xa;JSpinner.DateEditor de3 = new JSpinner.DateEditor(timeOutStartSpinner, format3.toPattern());&#xa;timeOutStartSpinner.setEditor(de3);"/>
           </AuxValues>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel23">
