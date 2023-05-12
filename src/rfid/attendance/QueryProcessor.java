@@ -12,6 +12,7 @@ package rfid.attendance;
  * @author User1
  */
 import java.sql.*;
+import javax.swing.JOptionPane;
 
 
 public class QueryProcessor {
@@ -28,7 +29,10 @@ public class QueryProcessor {
             con = DBConnection.getConnection();
             stmt= con.createStatement();
             
-        }catch(Exception e) {e.printStackTrace();}
+        }catch(Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, e.getMessage()+"\n", "MySQL Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
         
     public String[][] getAllRecord(String query)
@@ -55,6 +59,8 @@ public class QueryProcessor {
         }catch(Exception e)
         {
             e.printStackTrace();
+            JOptionPane.showMessageDialog(null,"<html><body style='width: 750px;'>"+ e.getMessage()+"<br>"+query+"</body></html>", "MySQL Error", JOptionPane.ERROR_MESSAGE);
+            
             
             
         }
@@ -62,14 +68,22 @@ public class QueryProcessor {
 
     }
     
-    public void executeUpdate(String query) {
+    public boolean executeUpdate(String query) {
                try{
 	       stmt.executeUpdate(query);
+               return true;
                }
                catch(Exception e)
                {
                    e.printStackTrace();
+                    System.out.println(query);
+                   JOptionPane.showMessageDialog(null,"<html><body style='width: 750px;'>"+ e.getMessage()+"<br>"+query+"</body></html>", "MySQL Error", JOptionPane.ERROR_MESSAGE);
+                   System.out.println(query);
+
+                   //System.out.println("e is "+e.getMessage());
+                   
                }
+               return false;
 	   }
     
     	   public String[] getSpecificRow(String query)
@@ -91,7 +105,7 @@ public class QueryProcessor {
 	       }catch(Exception e)
 	       {
                    e.printStackTrace();
-	    	   javax.swing.JOptionPane.showMessageDialog(null,"ERROR");
+	    	   JOptionPane.showMessageDialog(null,"<html><body style='width: 750px;'>"+ e.getMessage()+"<br>"+query+"</body></html>", "MySQL Error", JOptionPane.ERROR_MESSAGE);
 	       }
 	       return record;
 	   }
@@ -116,7 +130,7 @@ public class QueryProcessor {
 	       }catch(Exception e)
 	       {
                    e.printStackTrace();
-	    	   javax.swing.JOptionPane.showMessageDialog(null,"ERROR");
+	    	   JOptionPane.showMessageDialog(null,"<html><body style='width: 750px;'>"+ e.getMessage()+"<br>"+query+"</body></html>", "MySQL Error", JOptionPane.ERROR_MESSAGE);
 	       }
 	       return record;
 	   }
