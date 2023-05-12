@@ -28,6 +28,7 @@ public class SettingsPanel extends javax.swing.JFrame {
 
         jTabbedPane2 = new javax.swing.JTabbedPane();
         generalTab = new javax.swing.JPanel();
+        logsBtn = new javax.swing.JButton();
         connectionTab = new javax.swing.JPanel();
         jLabel1 = new javax.swing.JLabel();
         jComboBox1 = new javax.swing.JComboBox<>();
@@ -37,15 +38,27 @@ public class SettingsPanel extends javax.swing.JFrame {
 
         generalTab.setToolTipText("");
 
+        logsBtn.setText("Logs");
+        logsBtn.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                logsBtnActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout generalTabLayout = new javax.swing.GroupLayout(generalTab);
         generalTab.setLayout(generalTabLayout);
         generalTabLayout.setHorizontalGroup(
             generalTabLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 546, Short.MAX_VALUE)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, generalTabLayout.createSequentialGroup()
+                .addGap(0, 474, Short.MAX_VALUE)
+                .addComponent(logsBtn))
         );
         generalTabLayout.setVerticalGroup(
             generalTabLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 342, Short.MAX_VALUE)
+            .addGroup(generalTabLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(logsBtn)
+                .addContainerGap(314, Short.MAX_VALUE))
         );
 
         jTabbedPane2.addTab("General", generalTab);
@@ -100,12 +113,16 @@ public class SettingsPanel extends javax.swing.JFrame {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jTabbedPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 375, Short.MAX_VALUE)
+                .addComponent(jTabbedPane2)
                 .addContainerGap())
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
+
+    private void logsBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_logsBtnActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_logsBtnActionPerformed
 
     /**
      * @param args the command line arguments
@@ -149,5 +166,6 @@ public class SettingsPanel extends javax.swing.JFrame {
     private javax.swing.JComboBox<String> jComboBox1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JTabbedPane jTabbedPane2;
+    private javax.swing.JButton logsBtn;
     // End of variables declaration//GEN-END:variables
 }

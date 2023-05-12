@@ -30,10 +30,14 @@ public class RFIDATTENDANCE {
         arduinoPort = findArduinoPort(allAvailableComPorts);
         if (arduinoPort != null) {
             System.out.println("Arduino is connected on port: " + arduinoPort.getSystemPortName());
+            home.arduinoStatus.setText("Scan Status: Connected");
+            
+            
+
             // Open the serial port and configure its parameters
             arduinoPort.openPort();
             arduinoPort.setComPortParameters(9600, 8, 1, SerialPort.NO_PARITY);
-
+            
             // Read data from the serial port
             byte[] buffer = new byte[1024];
             String message = "";
@@ -46,7 +50,10 @@ public class RFIDATTENDANCE {
                         System.out.println("id is " + message);
                         rfidId = message;
                         home.addRFIDTF.setText(rfidId);
-                        home.insertStudentAttendance(rfidId);
+                        System.out.println("why"+rfidId);
+                        if(home.enableAttendanceBtn.isSelected()){
+                            home.insertStudentAttendance(rfidId);
+                        }
                         message = "";
                     } else if (message.length() > 8) {
                         message = "";
@@ -54,8 +61,9 @@ public class RFIDATTENDANCE {
                 }
             }
         } else {
-            JOptionPane.showMessageDialog(null, "No RFID Scanner found!");
+            //JOptionPane.showMessageDialog(null, "No RFID Scanner found!");
             System.out.println("Arduino is not connected. Please check the connection.");
+            home.arduinoStatus.setText("Scan Status: Disconnected");
         }
     }
 
