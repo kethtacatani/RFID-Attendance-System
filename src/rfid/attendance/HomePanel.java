@@ -165,15 +165,18 @@ public class HomePanel extends javax.swing.JFrame {
                 event = (recentInfo[0].length()>9 && recentInfo[0].substring(0,9).equals("School Da"))?"School Day":recentInfo[0];
                 courseInvolved=recentInfo[2];
                 yearInvolved = recentInfo[3];
-                timeInStart = (recentInfo[4]!=null)?recentInfo[4].substring(0,7):null;
-                timeInEnd = (recentInfo[4]!=null)?recentInfo[4].substring(7):null;
-                timeOutStart = (recentInfo[5]!=null)?recentInfo[4].substring(7):null;
-                timeOutEnd = (recentInfo[5]!=null)?recentInfo[4].substring(0,7):null;               
+                
+                timeInStart = (recentInfo[4]!=null)?recentInfo[4].split("(?<!\\d)(?=(\\d{1,2}:\\d{2}\\s*[ap]m))")[0]:null;
+                timeInEnd = (recentInfo[4]!=null)?recentInfo[4].split("(?<!\\d)(?=(\\d{1,2}:\\d{2}\\s*[ap]m))")[1]:null;
+                timeOutStart = (recentInfo[5]!=null)?recentInfo[5].split("(?<!\\d)(?=(\\d{1,2}:\\d{2}\\s*[ap]m))")[0]:null;
+                timeOutEnd = (recentInfo[5]!=null)?recentInfo[5].split("(?<!\\d)(?=(\\d{1,2}:\\d{2}\\s*[ap]m))")[1]:null;   
+                System.out.println(" time "+timeInStart+" "+timeInEnd+" "+timeOutStart+" "+timeOutEnd);
                 String query = "Select `rfid_id`, TIME_FORMAT(`time_in`, '%h:%i %p') AS formatted_time_in,"
                     + "CASE WHEN time_out IS NULL THEN 'Time-in' ELSE 'Time-out' END AS time_status from `student_record` WHERE `event`='"+recentInfo[0]+"'";
                 Object row[][]=qp.getAllRecord(query);
+                clearScanRecords();
                 if(row!=null){
-                    clearScanRecords();
+                    
                     
                     for (int i = 0; i < row.length; i++) {
                         scannedRFID.add(row[i][0].toString());
@@ -182,13 +185,13 @@ public class HomePanel extends javax.swing.JFrame {
                     }
                     
                 }
-                else{
-                    clearScanRecords();
-                }
+                
             }
             else{
                 // if recentEvent date did not match the current date
                 addEvent("recentEvent", event+" "+LocalDate.now().format(DateTimeFormatter.ofPattern("YY-MM-dd")), rawYearInvolved,null,null,rawCourseInvolved);
+                courseInvolved= rawCourseInvolved;
+                yearInvolved = rawYearInvolved;
             }
             
             rawEvent= recentInfo[0];
@@ -367,7 +370,8 @@ public class HomePanel extends javax.swing.JFrame {
     }
     
     public String getRowData(JTable table, DefaultTableModel tableModel, int row){
-    return tableModel.getValueAt(table.getSelectedRow(),row).toString();
+        Object cell = tableModel.getValueAt(table.getSelectedRow(),row);
+        return (tableModel.getValueAt(table.getSelectedRow(),row)!=null?cell.toString():null);
 }
     
     public void insertStudentAttendance(String rfidId){
@@ -481,7 +485,7 @@ public class HomePanel extends javax.swing.JFrame {
     
     public boolean updateEvent( String event, String year, String timeIn,String timeOut, String course, String id){
         if(qp.executeUpdate("UPDATE `events` SET `event_name`='"+event+"',`students_involved`='"+course+"',`year`='"+year+"',`time_in_range`="+timeIn+",`time_out_range`="+timeOut+" WHERE `event_id`="+Integer.parseInt(id)+"")){
-            df
+            return true;
         }
         return false;
     }
@@ -512,19 +516,11 @@ public class HomePanel extends javax.swing.JFrame {
         String timeOutStartFormatted = dateFormat.format(timeOutStartSpinner.getValue());
         String timeOutEndFormatted = dateFormat.format(timeOutEndSpinner.getValue());
         String errorMsg="";
-        
-        if(eventNameTF.equals("")|| timedifference(timeInEndFormatted, timeInStartFormatted)<0 
-                || timedifference(timeOutEndFormatted, timeOutStartFormatted)<0 
-                || (timedifference( timeOutStartFormatted,timeInEndFormatted))<0
-                || (!bscsCB.isSelected() && !bsfCB.isSelected() && !bsm.isSelected() && !beedCB.isSelected() && !bsitElectCB.isSelected() && !bsitFoodTechCB.isSelected() && !bsedEnglish.isSelected() && !bsedMathCB.isSelected())
-                || (!firstYearCb.isSelected() && !seconYearCB.isSelected() && !thirdYearCB.isSelected() && !fourthYearCB.isSelected())
-                || checkEventExist(eventNameTF.getText())){
-            
-            
+
             if(eventNameTF.getText().isEmpty()){
                 errorMsg += "- Event name required!\n";
             }
-            if(checkEventExist(eventNameTF.getText())){
+            if(checkEventExist(eventNameTF.getText()) && addEventRecordBtn.getText().equals("Add")){
                 errorMsg += "- Event name already exist!\n";
             }
             if(!bscsCB.isSelected() && !bsfCB.isSelected() && !bsm.isSelected() && !beedCB.isSelected() && !bsitElectCB.isSelected() && !bsitFoodTechCB.isSelected() && !bsedEnglish.isSelected() && !bsedMathCB.isSelected()){
@@ -533,64 +529,43 @@ public class HomePanel extends javax.swing.JFrame {
             if(!firstYearCb.isSelected() && !seconYearCB.isSelected() && !thirdYearCB.isSelected() && !fourthYearCB.isSelected()){
                 errorMsg += "- No Students Selected!\n";
             }
-            if(timedifference(timeInEndFormatted, timeInStartFormatted)<0){
-                errorMsg += "- Time in range is invalid!\n";
+            if((timedifference(timeInEndFormatted, timeInStartFormatted)<0 || timeInStartFormatted.equals(timeInEndFormatted))&& !noTimeIn.isSelected()){
+                errorMsg += "- Time in range is invalid or the same!\n";
             }
-            if(timedifference(timeOutEndFormatted, timeOutStartFormatted)<0){
-                errorMsg += "- Time out range is invalid!\n";
+            if((timedifference(timeOutEndFormatted, timeOutStartFormatted)<0 || timeOutStartFormatted.equals(timeOutEndFormatted)) && !noTimeOut.isSelected()){
+                errorMsg += "- Time out range is invalid or the same!\n";
             }
-            if((timedifference( timeOutStartFormatted,timeInEndFormatted))<0){
+            if((timedifference( timeOutStartFormatted,timeInEndFormatted))<0 && !noTimeOut.isSelected() && !noTimeIn.isSelected()){
                 errorMsg += "- Time out is earlier than time in!\n";
             }
-            
-            JOptionPane.showMessageDialog(null, errorMsg, "Add Event Error", JOptionPane.ERROR_MESSAGE);
+        if(!errorMsg.equals("")){
+            JOptionPane.showMessageDialog(null, errorMsg, type.substring(0, 1).toUpperCase() + type.substring(1)+" Event Error", JOptionPane.ERROR_MESSAGE);
         }
         else{
-            String timeIn = "'"+timeInStart+timeInEnd+"'";
-            String timeOut = "'"+timeOutStart+timeOutEnd+"'";
-            if (timeInStart == null && timeInEnd == null && timeOutStart==null && timeOutEnd==null){
-                timeIn=null;
-                timeOut=null;
-            }
+            
 
             String course="", year="";
-            if(bscsCB.isSelected()){
-                course += bscsCB.getText()+",";
-            }if(bsitElectCB.isSelected()){
-                course += bsitElectCB.getText()+",";
-            }
-            if(bsitFoodTechCB.isSelected()){
-                course += bsitFoodTechCB.getText()+",";
-            }
-            if(bsfCB.isSelected()){
-                course += bsfCB.getText()+",";
-            }
-            if(beedCB.isSelected()){
-                course += beedCB.getText()+",";
-            }
-            if(bsedEnglish.isSelected()){
-                course += bsedEnglish.getText()+",";
-            }
-            if(bsedMathCB.isSelected()){
-                course += bsedMathCB.getText()+",";
-            }
-            if(bsm.isSelected()){
-                course += bsm.getText()+",";
-            }
+            course += bscsCB.isSelected() ? bscsCB.getText() + "," : "";
+            course += bsitElectCB.isSelected() ? bsitElectCB.getText() + "," : "";
+            course += bsitFoodTechCB.isSelected() ? bsitFoodTechCB.getText() + "," : "";
+            course += bsfCB.isSelected() ? bsfCB.getText() + "," : "";
+            course += beedCB.isSelected() ? beedCB.getText() + "," : "";
+            course += bsedEnglish.isSelected() ? bsedEnglish.getText() + "," : "";
+            course += bsedMathCB.isSelected() ? bsedMathCB.getText() + "," : "";
+            course += bsm.isSelected() ? bsm.getText() + "," : "";
 
-            if(firstYearCb.isSelected()){
-                year += "1,";
-            }
-            if(seconYearCB.isSelected()){
-                year += "2,";
-            }
-            if(thirdYearCB.isSelected()){
-                year += "3,";
-            }
-            if(fourthYearCB.isSelected()){
-                year += "4,";
-            }
+            year += firstYearCb.isSelected() ? "1," : "";
+            year += seconYearCB.isSelected() ? "2," : "";
+            year += thirdYearCB.isSelected() ? "3," : "";
+            year += fourthYearCB.isSelected() ? "4," : "";
             System.out.println("course is "+course);
+            
+            String timeIn = (noTimeIn.isSelected()?null:"'"+timeInStartFormatted+timeInEndFormatted+"'");
+            String timeOut = (noTimeOut.isSelected()?null:"'"+timeOutStartFormatted+timeOutEndFormatted+"'");
+//            if (timeInStart == null && timeInEnd == null && timeOutStart==null && timeOutEnd==null){
+//                timeIn=null;
+//                timeOut=null;
+//            }
             
             int confirm = JOptionPane.showConfirmDialog(null, "Confirm "+type+"ing this event?", "Confirm",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE);
         if(confirm == JOptionPane.YES_OPTION){
@@ -608,11 +583,18 @@ public class HomePanel extends javax.swing.JFrame {
                 }
             }
             else{
-                updateEvent( eventNameTF.getText(), year, timeIn, timeOut, course, getRowData(manageEventTable, eventModel,0));
+               if( updateEvent( eventNameTF.getText(), year, timeIn, timeOut, course, getRowData(manageEventTable, eventModel,0))){
+                   JOptionPane.showMessageDialog(null, "Event Saved Successfully");
+                   displayRecentScans();
+                   displayManageStudentTable();
+                   displayEvents();
+                   addEvent.setVisible(false);
+               }
             }
             
             
         }
+            System.out.println(" ");
         }
     }
 
@@ -718,6 +700,8 @@ public class HomePanel extends javax.swing.JFrame {
         SpinnerDateModel sm3 = new SpinnerDateModel(startTime3, null, null, Calendar.HOUR_OF_DAY);
         timeOutStartSpinner = new javax.swing.JSpinner(sm3);
         jLabel23 = new javax.swing.JLabel();
+        noTimeOut = new javax.swing.JCheckBox();
+        noTimeIn = new javax.swing.JCheckBox();
         studentsList = new javax.swing.JDialog();
         bscsCB = new javax.swing.JCheckBox();
         bsitFoodTechCB = new javax.swing.JCheckBox();
@@ -1192,7 +1176,6 @@ public class HomePanel extends javax.swing.JFrame {
         );
 
         addEvent.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
-        addEvent.setTitle("Add Event");
         addEvent.setBackground(new java.awt.Color(255, 255, 255));
         addEvent.setMinimumSize(new java.awt.Dimension(482, 255));
         addEvent.setModalExclusionType(null);
@@ -1301,6 +1284,20 @@ public class HomePanel extends javax.swing.JFrame {
         jLabel23.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
         jLabel23.setText("to");
 
+        noTimeOut.setText("No Time-out");
+        noTimeOut.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                noTimeOutActionPerformed(evt);
+            }
+        });
+
+        noTimeIn.setText("No Time-in");
+        noTimeIn.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                noTimeInActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout addEventLayout = new javax.swing.GroupLayout(addEvent.getContentPane());
         addEvent.getContentPane().setLayout(addEventLayout);
         addEventLayout.setHorizontalGroup(
@@ -1308,7 +1305,7 @@ public class HomePanel extends javax.swing.JFrame {
             .addGroup(addEventLayout.createSequentialGroup()
                 .addGap(24, 24, 24)
                 .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(addEventLayout.createSequentialGroup()
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, addEventLayout.createSequentialGroup()
                         .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, addEventLayout.createSequentialGroup()
                                 .addComponent(jLabel21)
@@ -1328,7 +1325,11 @@ public class HomePanel extends javax.swing.JFrame {
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(jLabel23, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(timeOutEndSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                                .addComponent(timeOutEndSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(noTimeOut, javax.swing.GroupLayout.DEFAULT_SIZE, 114, Short.MAX_VALUE)
+                            .addComponent(noTimeIn, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                         .addComponent(addEventRecordBtn)
                         .addGroup(addEventLayout.createSequentialGroup()
@@ -1381,7 +1382,8 @@ public class HomePanel extends javax.swing.JFrame {
                 .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(timeInEndSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(jLabel19))
+                        .addComponent(jLabel19)
+                        .addComponent(noTimeIn))
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(jLabel21)
                         .addComponent(timeInStartSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
@@ -1389,7 +1391,8 @@ public class HomePanel extends javax.swing.JFrame {
                 .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(timeOutEndSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(jLabel23))
+                        .addComponent(jLabel23)
+                        .addComponent(noTimeOut))
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(timeOutStartSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(jLabel22)))
@@ -2261,6 +2264,7 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void updateEventBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_updateEventBtnActionPerformed
         // TODO add your handling code here:
+        addEvent.setTitle("Edit Event");
         addEventRecordBtn.setText("Save");
         String courseIncluded = getRowData(manageEventTable, eventModel, 3);
         String yearIncluded = getRowData(manageEventTable, eventModel, 4);
@@ -2282,12 +2286,51 @@ public class HomePanel extends javax.swing.JFrame {
         fourthYearCB.setSelected((yearIncluded.contains("4")));
         addEvent.setVisible(true);
         
-        displayTimeSpinner(getRowData(manageEventTable, eventModel, 5).substring(0,8), timeInStartSpinner);
-        displayTimeSpinner(getRowData(manageEventTable, eventModel, 5).substring(7), timeInEndSpinner);
-        displayTimeSpinner(getRowData(manageEventTable, eventModel, 6).substring(0,8), timeOutStartSpinner);
-        displayTimeSpinner(getRowData(manageEventTable, eventModel, 6).substring(7), timeOutEndSpinner);
-        
+        if(getRowData(manageEventTable, eventModel, 5)!=null){
+            displayTimeSpinner(getRowData(manageEventTable, eventModel, 5).substring(0,8), timeInStartSpinner);
+            displayTimeSpinner(getRowData(manageEventTable, eventModel, 5).substring(7), timeInEndSpinner);
+            noTimeIn.setSelected(false);
+            noTimeInActionPerformed(evt);
+        }
+        else{
+            noTimeIn.setSelected(true);
+            noTimeInActionPerformed(evt);
+        }
+        if(getRowData(manageEventTable, eventModel, 6)!=null){
+            displayTimeSpinner(getRowData(manageEventTable, eventModel, 6).substring(0,8), timeOutStartSpinner);
+            displayTimeSpinner(getRowData(manageEventTable, eventModel, 6).substring(7), timeOutEndSpinner);
+            noTimeOut.setSelected(false);
+            noTimeOutActionPerformed(evt);
+        }
+        else{
+            noTimeOut.setSelected(true);
+            noTimeOutActionPerformed(evt);
+        }
     }//GEN-LAST:event_updateEventBtnActionPerformed
+
+    private void noTimeOutActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_noTimeOutActionPerformed
+        // TODO add your handling code here:
+        if(noTimeOut.isSelected()){
+            timeOutStartSpinner.setEnabled(false);
+            timeOutEndSpinner.setEnabled(false);
+        }
+        else{
+            timeOutStartSpinner.setEnabled(true);
+            timeOutEndSpinner.setEnabled(true);
+        }
+    }//GEN-LAST:event_noTimeOutActionPerformed
+
+    private void noTimeInActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_noTimeInActionPerformed
+        // TODO add your handling code here:
+        if(noTimeIn.isSelected()){
+            timeInStartSpinner.setEnabled(false);
+            timeInEndSpinner.setEnabled(false);
+        }
+        else{
+            timeInStartSpinner.setEnabled(true);
+            timeInEndSpinner.setEnabled(true);
+        }
+    }//GEN-LAST:event_noTimeInActionPerformed
 
     /**
      * @param args the command line arguments
@@ -2424,6 +2467,8 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JDialog manageStudentDialog;
     private javax.swing.JTable manageStudentTable;
     private javax.swing.JButton manageStudentsBtn;
+    private javax.swing.JCheckBox noTimeIn;
+    private javax.swing.JCheckBox noTimeOut;
     private javax.swing.JButton recentEventsBtn;
     private javax.swing.JTable recentRecordsTable;
     private javax.swing.JPanel recordsPanel;

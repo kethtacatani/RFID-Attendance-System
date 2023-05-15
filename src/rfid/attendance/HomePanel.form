@@ -717,7 +717,6 @@
     <Container class="javax.swing.JDialog" name="addEvent">
       <Properties>
         <Property name="defaultCloseOperation" type="int" value="2"/>
-        <Property name="title" type="java.lang.String" value="Add Event"/>
         <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
           <Color blue="ff" green="ff" red="ff" type="rgb"/>
         </Property>
@@ -741,7 +740,7 @@
               <Group type="102" alignment="0" attributes="0">
                   <EmptySpace min="-2" pref="24" max="-2" attributes="0"/>
                   <Group type="103" groupAlignment="0" attributes="0">
-                      <Group type="102" attributes="0">
+                      <Group type="102" alignment="1" attributes="0">
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="102" alignment="1" attributes="0">
                                   <Component id="jLabel21" min="-2" max="-2" attributes="0"/>
@@ -768,8 +767,13 @@
                                   <Component id="timeOutEndSpinner" min="-2" pref="73" max="-2" attributes="0"/>
                               </Group>
                           </Group>
+                          <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                          <Group type="103" groupAlignment="0" max="-2" attributes="0">
+                              <Component id="noTimeOut" pref="114" max="32767" attributes="0"/>
+                              <Component id="noTimeIn" max="32767" attributes="0"/>
+                          </Group>
                       </Group>
-                      <Group type="103" alignment="0" groupAlignment="1" attributes="0">
+                      <Group type="103" groupAlignment="1" attributes="0">
                           <Component id="addEventRecordBtn" min="-2" max="-2" attributes="0"/>
                           <Group type="102" attributes="0">
                               <Group type="103" groupAlignment="1" attributes="0">
@@ -838,6 +842,7 @@
                       <Group type="103" alignment="0" groupAlignment="3" attributes="0">
                           <Component id="timeInEndSpinner" alignment="3" min="-2" max="-2" attributes="0"/>
                           <Component id="jLabel19" alignment="3" min="-2" max="-2" attributes="0"/>
+                          <Component id="noTimeIn" alignment="3" min="-2" max="-2" attributes="0"/>
                       </Group>
                       <Group type="103" alignment="0" groupAlignment="3" attributes="0">
                           <Component id="jLabel21" alignment="3" min="-2" max="-2" attributes="0"/>
@@ -849,6 +854,7 @@
                       <Group type="103" alignment="0" groupAlignment="3" attributes="0">
                           <Component id="timeOutEndSpinner" alignment="3" min="-2" max="-2" attributes="0"/>
                           <Component id="jLabel23" alignment="3" min="-2" max="-2" attributes="0"/>
+                          <Component id="noTimeOut" alignment="3" min="-2" max="-2" attributes="0"/>
                       </Group>
                       <Group type="103" alignment="0" groupAlignment="3" attributes="0">
                           <Component id="timeOutStartSpinner" alignment="3" min="-2" max="-2" attributes="0"/>
@@ -1001,6 +1007,22 @@
             </Property>
             <Property name="text" type="java.lang.String" value="to"/>
           </Properties>
+        </Component>
+        <Component class="javax.swing.JCheckBox" name="noTimeOut">
+          <Properties>
+            <Property name="text" type="java.lang.String" value="No Time-out"/>
+          </Properties>
+          <Events>
+            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="noTimeOutActionPerformed"/>
+          </Events>
+        </Component>
+        <Component class="javax.swing.JCheckBox" name="noTimeIn">
+          <Properties>
+            <Property name="text" type="java.lang.String" value="No Time-in"/>
+          </Properties>
+          <Events>
+            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="noTimeInActionPerformed"/>
+          </Events>
         </Component>
       </SubComponents>
     </Container>
