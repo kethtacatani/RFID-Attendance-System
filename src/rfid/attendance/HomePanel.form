@@ -770,7 +770,7 @@
                           </Group>
                       </Group>
                       <Group type="103" alignment="0" groupAlignment="1" attributes="0">
-                          <Component id="addStudentRecordBtn1" min="-2" max="-2" attributes="0"/>
+                          <Component id="addEventRecordBtn" min="-2" max="-2" attributes="0"/>
                           <Group type="102" attributes="0">
                               <Group type="103" groupAlignment="1" attributes="0">
                                   <Group type="102" attributes="0">
@@ -856,7 +856,7 @@
                       </Group>
                   </Group>
                   <EmptySpace min="-2" pref="15" max="-2" attributes="0"/>
-                  <Component id="addStudentRecordBtn1" min="-2" max="-2" attributes="0"/>
+                  <Component id="addEventRecordBtn" min="-2" max="-2" attributes="0"/>
                   <EmptySpace min="-2" pref="28" max="-2" attributes="0"/>
               </Group>
           </Group>
@@ -874,6 +874,9 @@
           </Properties>
         </Component>
         <Component class="javax.swing.JTextField" name="eventNameTF">
+          <Events>
+            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="eventNameTFActionPerformed"/>
+          </Events>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel20">
           <Properties>
@@ -890,12 +893,12 @@
             <Property name="text" type="java.lang.String" value="Time-out"/>
           </Properties>
         </Component>
-        <Component class="javax.swing.JButton" name="addStudentRecordBtn1">
+        <Component class="javax.swing.JButton" name="addEventRecordBtn">
           <Properties>
             <Property name="text" type="java.lang.String" value="Add"/>
           </Properties>
           <Events>
-            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="addStudentRecordBtn1ActionPerformed"/>
+            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="addEventRecordBtnActionPerformed"/>
           </Events>
         </Component>
         <Component class="javax.swing.JCheckBox" name="firstYearCb">
@@ -973,7 +976,7 @@
         <Component class="javax.swing.JSpinner" name="timeInEndSpinner">
           <AuxValues>
             <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new javax.swing.JSpinner(sm2)"/>
-            <AuxValue name="JavaCodeGenerator_CreateCodePre" type="java.lang.String" value="Calendar calendar2 = Calendar.getInstance();&#xa;calendar2.set(Calendar.HOUR_OF_DAY, 8);&#xa;calendar2.set(Calendar.MINUTE, 0);&#xa;Date startTime2 = calendar2.getTime();&#xa;&#xa;SpinnerDateModel sm2 = new SpinnerDateModel(startTime2, null, null, Calendar.HOUR_OF_DAY);"/>
+            <AuxValue name="JavaCodeGenerator_CreateCodePre" type="java.lang.String" value="Calendar calendar2 = Calendar.getInstance();&#xa;calendar2.set(Calendar.HOUR_OF_DAY, 8);&#xa;calendar2.set(Calendar.MINUTE, 00);&#xa;Date startTime2 = calendar2.getTime();&#xa;&#xa;SpinnerDateModel sm2 = new SpinnerDateModel(startTime2, null, null, Calendar.HOUR_OF_DAY);"/>
             <AuxValue name="JavaCodeGenerator_InitCodePre" type="java.lang.String" value="SimpleDateFormat format2 = new SimpleDateFormat(&quot;hh:mm a&quot;);&#xa;JSpinner.DateEditor de2 = new JSpinner.DateEditor(timeInEndSpinner, format.toPattern());&#xa;timeInEndSpinner.setEditor(de2);"/>
           </AuxValues>
         </Component>
@@ -1290,7 +1293,7 @@
                     <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
                       <Image iconType="3" name="/rfid/attendance/images/icons8_edit_property_40px.png"/>
                     </Property>
-                    <Property name="text" type="java.lang.String" value="Update Event"/>
+                    <Property name="text" type="java.lang.String" value="Edit Event"/>
                     <Property name="toolTipText" type="java.lang.String" value="Update Event"/>
                     <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
                       <Color id="Default Cursor"/>
@@ -1301,6 +1304,9 @@
                     </Property>
                     <Property name="verticalTextPosition" type="int" value="3"/>
                   </Properties>
+                  <Events>
+                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="updateEventBtnActionPerformed"/>
+                  </Events>
                 </Component>
                 <Component class="javax.swing.JButton" name="deleteEventBtn">
                   <Properties>
@@ -1363,7 +1369,9 @@
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Component id="jScrollPane4" alignment="0" min="-2" pref="931" max="-2" attributes="0"/>
                               <Group type="102" alignment="0" attributes="0">
-                                  <EmptySpace min="-2" pref="644" max="-2" attributes="0"/>
+                                  <EmptySpace min="-2" pref="9" max="-2" attributes="0"/>
+                                  <Component id="testLabel" min="-2" pref="125" max="-2" attributes="0"/>
+                                  <EmptySpace min="-2" pref="510" max="-2" attributes="0"/>
                                   <Component id="jComboBox2" min="-2" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
                                   <Component id="jTextField2" min="-2" pref="211" max="-2" attributes="0"/>
@@ -1380,6 +1388,7 @@
                           <Group type="103" groupAlignment="3" attributes="0">
                               <Component id="jTextField2" alignment="3" min="-2" max="-2" attributes="0"/>
                               <Component id="jComboBox2" alignment="3" min="-2" max="-2" attributes="0"/>
+                              <Component id="testLabel" alignment="3" min="-2" max="-2" attributes="0"/>
                           </Group>
                           <EmptySpace type="unrelated" max="-2" attributes="0"/>
                           <Component id="jScrollPane4" min="-2" pref="380" max="-2" attributes="0"/>
@@ -1421,6 +1430,7 @@
                   <SubComponents>
                     <Component class="javax.swing.JTable" name="manageEventTable">
                       <Properties>
+                        <Property name="autoCreateRowSorter" type="boolean" value="true"/>
                         <Property name="model" type="javax.swing.table.TableModel" editor="org.netbeans.modules.form.editors2.TableModelEditor">
                           <Table columnCount="4" rowCount="4">
                             <Column editable="true" title="Title 1" type="java.lang.Object"/>
@@ -1429,6 +1439,35 @@
                             <Column editable="true" title="Title 4" type="java.lang.Object"/>
                           </Table>
                         </Property>
+                        <Property name="columnModel" type="javax.swing.table.TableColumnModel" editor="org.netbeans.modules.form.editors2.TableColumnModelEditor">
+                          <TableColumnModel selectionModel="0">
+                            <Column maxWidth="-1" minWidth="-1" prefWidth="-1" resizable="true">
+                              <Title/>
+                              <Editor/>
+                              <Renderer/>
+                            </Column>
+                            <Column maxWidth="-1" minWidth="-1" prefWidth="-1" resizable="true">
+                              <Title/>
+                              <Editor/>
+                              <Renderer/>
+                            </Column>
+                            <Column maxWidth="-1" minWidth="-1" prefWidth="-1" resizable="true">
+                              <Title/>
+                              <Editor/>
+                              <Renderer/>
+                            </Column>
+                            <Column maxWidth="-1" minWidth="-1" prefWidth="-1" resizable="true">
+                              <Title/>
+                              <Editor/>
+                              <Renderer/>
+                            </Column>
+                          </TableColumnModel>
+                        </Property>
+                        <Property name="editingColumn" type="int" value="1"/>
+                        <Property name="editingRow" type="int" value="1"/>
+                        <Property name="tableHeader" type="javax.swing.table.JTableHeader" editor="org.netbeans.modules.form.editors2.JTableHeaderEditor">
+                          <TableHeader reorderingAllowed="true" resizingAllowed="true"/>
+                        </Property>
                       </Properties>
                       <Events>
                         <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="manageEventTableMouseClicked"/>
@@ -1436,6 +1475,11 @@
                     </Component>
                   </SubComponents>
                 </Container>
+                <Component class="javax.swing.JLabel" name="testLabel">
+                  <Properties>
+                    <Property name="text" type="java.lang.String" value="test"/>
+                  </Properties>
+                </Component>
               </SubComponents>
             </Container>
           </SubComponents>
@@ -1963,9 +2007,9 @@
                           </Group>
                           <Group type="102" alignment="0" attributes="0">
                               <EmptySpace min="-2" pref="44" max="-2" attributes="0"/>
-                              <Component id="totalPresent1" min="-2" pref="108" max="-2" attributes="0"/>
+                              <Component id="totalPresent" min="-2" pref="108" max="-2" attributes="0"/>
                               <EmptySpace max="-2" attributes="0"/>
-                              <Component id="totalPresent" min="-2" pref="74" max="-2" attributes="0"/>
+                              <Component id="totalStudentStats" min="-2" pref="74" max="-2" attributes="0"/>
                           </Group>
                       </Group>
                       <EmptySpace pref="34" max="32767" attributes="0"/>
@@ -1977,8 +2021,8 @@
                   <Group type="102" alignment="0" attributes="0">
                       <EmptySpace max="-2" attributes="0"/>
                       <Group type="103" groupAlignment="3" attributes="0">
-                          <Component id="totalPresent1" alignment="3" min="-2" pref="82" max="-2" attributes="0"/>
-                          <Component id="totalPresent" alignment="3" min="-2" max="-2" attributes="0"/>
+                          <Component id="totalPresent" alignment="3" min="-2" pref="82" max="-2" attributes="0"/>
+                          <Component id="totalStudentStats" alignment="3" min="-2" max="-2" attributes="0"/>
                       </Group>
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="jLabel2" min="-2" max="-2" attributes="0"/>
@@ -1997,7 +2041,7 @@
             </DimensionLayout>
           </Layout>
           <SubComponents>
-            <Component class="javax.swing.JLabel" name="totalPresent">
+            <Component class="javax.swing.JLabel" name="totalStudentStats">
               <Properties>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Century Gothic" size="18" style="1"/>
@@ -2038,7 +2082,7 @@
                 <Property name="text" type="java.lang.String" value="Students Present"/>
               </Properties>
             </Component>
-            <Component class="javax.swing.JLabel" name="totalPresent1">
+            <Component class="javax.swing.JLabel" name="totalPresent">
               <Properties>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Century Gothic" size="48" style="1"/>

@@ -69,7 +69,7 @@ public class RFIDATTENDANCE {
 
     private static SerialPort findArduinoPort(SerialPort[] ports) {
         for (SerialPort port : ports) {
-            if (port.getDescriptivePortName().contains("Arduino")) {
+            if (port.getDescriptivePortName().contains("Arduino") || port.getDescriptivePortName().contains("CH340") || port.getDescriptivePortName().contains("CH341")) {
                 return port;
             }
         }

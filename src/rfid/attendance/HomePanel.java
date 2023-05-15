@@ -3,6 +3,7 @@ package rfid.attendance;
 
 
 import com.fazecast.jSerialComm.SerialPort;
+import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.text.ParseException;
@@ -22,6 +23,8 @@ import static rfid.attendance.RFIDATTENDANCE.arduinoPort;
 import java.sql.*;
 import java.text.DateFormatSymbols;
 import java.util.Calendar;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
@@ -30,6 +33,7 @@ import javax.swing.JTable;
 import javax.swing.SpinnerDateModel;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.JTableHeader;
 
 /**
  *
@@ -67,7 +71,7 @@ public class HomePanel extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Events Panel">   
     DefaultTableModel eventModel;
     Object eventsROw [][];
-    String eventColumn []= {"ID","Event Name","Date","Students Involved","Year","Time-in","Time-out","Total Present"};
+    String eventColumn []= {"ID","Event Name","Date","Students Involved","Year","Time-in","Time-out","<html>Total<br>Present"};
     
   
     // </editor-fold> 
@@ -87,7 +91,12 @@ public class HomePanel extends javax.swing.JFrame {
     public static String time;
     
     String event = "School Day";
-    String studentsInvolved = "All Students";
+    String rawEvent="";
+    String courseInvolved = "\'BSCS\',\'BSIT-Elect\',\'BSIT-Food Tech\',\'BSF\',\'BEEd\',\'BSED- English\',\'BSED- Math\',\'BSM\',";
+    String yearInvolved= "\'1\',\'2\',\'3 Tech\',\'4\'";
+    String rawCourseInvolved="BSCS,BSIT-Elect,BSIT-Food Tech,BSF,";
+    String rawYearInvolved="1,2,3,4,";
+    int totalStudents = 0;
     String timeInStart = "";
     String timeInEnd = "";
     String timeOutStart = "";
@@ -132,7 +141,8 @@ public class HomePanel extends javax.swing.JFrame {
         timer.setInitialDelay(0);
         timer.start();
         updateStudentCount();
-        displayStatistics(LocalDate.now().format(dateFormatter));
+        displayStatistics();
+        displayLCDMessage(3);
         
         
 
@@ -146,36 +156,103 @@ public class HomePanel extends javax.swing.JFrame {
         System.out.println("Pre-Process");
         String[][] records = qp.getAllRecord("SELECT 1 FROM `events` WHERE `recent_event` =  'recentEvent'");
         if(records!=null){
-            String[] recentInfo = qp.getSpecificRow("Select `event_name`,`date` from `events` WHERE `recent_event`='recentEvent'");
-            System.out.println("date is "+recentInfo);
+            String query1 ="Select `event_name`,`date`,`students_involved`, `year`,`time_in_range`,`time_out_range` from `events` WHERE `recent_event`='recentEvent'";
+            System.out.println("query is "+query1);
+            String[] recentInfo = qp.getSpecificRow(query1);
+            System.out.println("date is "+Arrays.toString(recentInfo));
             if(recentInfo[1].equals(LocalDate.now().format(dateFormatter))){
                 //if recentEvent date matched the current date
+                event = (recentInfo[0].length()>9 && recentInfo[0].substring(0,9).equals("School Da"))?"School Day":recentInfo[0];
+                courseInvolved=recentInfo[2];
+                yearInvolved = recentInfo[3];
+                timeInStart = (recentInfo[4]!=null)?recentInfo[4].substring(0,7):null;
+                timeInEnd = (recentInfo[4]!=null)?recentInfo[4].substring(7):null;
+                timeOutStart = (recentInfo[5]!=null)?recentInfo[4].substring(7):null;
+                timeOutEnd = (recentInfo[5]!=null)?recentInfo[4].substring(0,7):null;               
                 String query = "Select `rfid_id`, TIME_FORMAT(`time_in`, '%h:%i %p') AS formatted_time_in,"
                     + "CASE WHEN time_out IS NULL THEN 'Time-in' ELSE 'Time-out' END AS time_status from `student_record` WHERE `event`='"+recentInfo[0]+"'";
                 Object row[][]=qp.getAllRecord(query);
                 if(row!=null){
+                    clearScanRecords();
+                    
                     for (int i = 0; i < row.length; i++) {
                         scannedRFID.add(row[i][0].toString());
                         scanTime.add(row[i][1].toString());
                         scanType.add(row[i][2].toString());
                     }
+                    
                 }
-                event = recentInfo[0];
-                eventLabel.setText(event);
+                else{
+                    clearScanRecords();
                 }
+            }
             else{
                 // if recentEvent date did not match the current date
-                addEvent(null, null, null, null,"recentEvent", event+" "+LocalDate.now().format(DateTimeFormatter.ofPattern("YY-MM-dd")));
-                
+                addEvent("recentEvent", event+" "+LocalDate.now().format(DateTimeFormatter.ofPattern("YY-MM-dd")), rawYearInvolved,null,null,rawCourseInvolved);
             }
+            
+            rawEvent= recentInfo[0];
+            eventLabel.setText(event);
+            String getYearInvolved = this.yearInvolved.substring(0, this.yearInvolved.length()-1);
+            String getCourseInvolved = this.courseInvolved.substring(0, this.courseInvolved.length()-1);
+            yearInvolved = "\'" + getYearInvolved.replace(",", "\',\'") + "\'";
+            courseInvolved = "\'" + getCourseInvolved.replace(",", "\',\'") + "\'";
+            totalStudents = Integer.parseInt(qp.getSpecificField("SELECT COUNT(*) AS `total_students` FROM `student_info` WHERE `course` IN ("+courseInvolved+") AND `year` IN ("+yearInvolved+")"));
+            
+            totalPresent.setText(scannedRFID.size()+"");
+            totalStudentStats.setText("/"+totalStudents);  
+            displayStatistics();
+            
         }
         else{
             //if no recentEvent exist or database in empty
-            addEvent(null, null, null, null,"recentEvent", event+" "+LocalDate.now().format(DateTimeFormatter.ofPattern("YY-MM-dd")));
+            addEvent("recentEvent", event+" "+LocalDate.now().format(DateTimeFormatter.ofPattern("YY-MM-dd")), rawYearInvolved,null,null,rawCourseInvolved);
             System.out.println("adding recent");
+            rawEvent= event+" "+LocalDate.now().format(DateTimeFormatter.ofPattern("YY-MM-dd"));
+        }
+        displayLCDMessage(0);
+    }
+    
+    public void displayLCDMessage(int delay){
+        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+        executor.schedule(() -> {
+            // Code to be executed after the delay
+            String space="";
+           if(event.length()<16){
+               int spaces = (16 - event.length()) / 2;
+           
+            for (int i=0;i<spaces;i++){
+                space+=" ";
+            }
+           }
+            
+           String lcdMessage = "msg0"+(space+event+"                  ").substring(0,16)+"Tap RFID to Scan                ";
+            arduinoPort.writeBytes(lcdMessage.getBytes(),lcdMessage.length());
+        }, delay, TimeUnit.SECONDS);
+
+        // Shutdown the executor when you no longer need it
+        executor.shutdown();
+    }
+    
+    public void executeArduinoWrite(String messagee, int delay) {
+        int newDelay=5;
+        if(delay!=0){
+            newDelay=delay;
+        }
+        System.out.println(delay +" new "+newDelay);
+        System.out.println("Executing arduino write");
+        if (arduinoPort != null && arduinoPort.isOpen()) {
+            System.out.println("port open for message");
+            arduinoPort.writeBytes(messagee.getBytes(), messagee.length());
+            displayLCDMessage(newDelay);
         }
         
-
+    }
+    
+    public void clearScanRecords(){
+        scannedRFID.clear();
+        scanTime.clear();
+        scanType.clear();
     }
     
     public boolean updateRecentEvent(){
@@ -191,23 +268,19 @@ public class HomePanel extends javax.swing.JFrame {
     public void updateStudentCount(){
         System.out.println("Updating student count");
         System.out.println(scanType.toString());
-        totalPresent1.setText(scannedRFID.size()+"");
+        totalPresent.setText(scannedRFID.size()+"");
         timedIn.setText("Timed-in: "+scanType.stream().filter(element -> element.equals("Time-in")).count()+"");
         timedOut.setText("Timed-out: "+scanType.stream().filter(element ->  element.equals("Time-out")).count()+"");
     }
     
-    public  void displayStatistics(String date){
+    public  void displayStatistics(){
         System.out.println("Displaying User Statistcs");
-        int totalStudents = qp.getAllRecord("Select `student_id` from `student_info`").length;
-        if(!event.equals("School Day")){
-            
-        }    
         
-        totalPresent.setText("/"+totalStudents);
         
         courseCount = qp.getAllRecord("SELECT `student_info`.`course`, COUNT(`student_record`.`student_id`) AS count FROM `student_info` "
                 + "LEFT JOIN `student_record` ON `student_info`.`student_id` = `student_record`.`student_id` "
-                + "WHERE `student_record`.`date` = '"+date+"'  GROUP BY `student_info`.`course`;");
+                + "WHERE `student_record`.`event` = '"+rawEvent+"'  GROUP BY `student_info`.`course`;");
+        
         courseCountModel = new DefaultTableModel(courseCount,courseColumn);
         studentPerCourseTable.setModel(courseCountModel);
         DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
@@ -218,18 +291,6 @@ public class HomePanel extends javax.swing.JFrame {
         
     }
     
-    
-    
-    public void executeArduinoWrite(String messagee) {
-        System.out.println("Executing arduino write");
-        if (arduinoPort != null && arduinoPort.isOpen()) {
-            System.out.println("port open for message");
-            arduinoPort.writeBytes(messagee.getBytes(), messagee.length());
-            
-        }
-        
-    }
-    
     public void displayRecentScans(){
         System.out.println("Displaying Recent Scans");
        // "ID No.","Last Name","First Name","M.I.","Type","Time","Status"};
@@ -237,7 +298,7 @@ public class HomePanel extends javax.swing.JFrame {
         String query = "SELECT `student_info`.`student_id`, `student_info`.`last_name`, `student_info`.`first_name`, LEFT(`middle_name`, 1) AS `first_letter1`,"
                 + "CASE WHEN time_out IS NULL THEN 'Time-in' ELSE 'Time-out' END AS time_status, TIME_FORMAT(`student_record`.`time_in`, '%h:%i %p') AS formatted_time_in,"
                 + "CASE WHEN `student_record`.`status` IS NULL THEN '' ELSE '"+attendanceStatus+"' END AS student_status FROM `student_record`, `student_info` WHERE `student_record`.`student_id` = `student_info`.`student_id` "
-                + "AND `student_record`.`event` = '"+event+"' AND `student_record`.`date` = '"+LocalDate.now().format(dateFormatter)+"'";
+                + "AND `student_record`.`event` = '"+rawEvent+"' AND `student_record`.`date` = '"+LocalDate.now().format(dateFormatter)+"'";
         System.out.println(query);
         tablerow = qp.getAllRecord(query);
         model = new DefaultTableModel(tablerow,tablecol);
@@ -268,16 +329,41 @@ public class HomePanel extends javax.swing.JFrame {
     }
     
     public void displayEvents(){
-        String query = "SELECT `event_id`,  `event_name`,`date`, CASE WHEN "
-                + "`students_involved`= 'BSCS,BSIT-Elect,BSIT-Food Tech,BSF,BEEd,BSED- English,BSED- Math,BSM,' THEN 'All Courses' ELSE `students_involved` END AS students_involved,"
-                + " `year`, `time_in_range`, `time_out_range`, `total_present` FROM `events` ORDER BY "
-                + "CASE WHEN `recent_event` = 'recenEvent' THEN 0 ELSE 1 END, `event_id` DESC;";
+        String query = "SELECT `events`.`event_id`,  `events`.`event_name`,`events`.`date`, CASE WHEN "
+                + "`events`.`students_involved`= 'BSCS,BSIT-Elect,BSIT-Food Tech,BSF,BEEd,BSED- English,BSED- Math,BSM,' THEN 'All Courses' ELSE `events`.`students_involved` END AS students_involved,"
+                + " `events`.`year`, `events`.`time_in_range`, `events`.`time_out_range`, COUNT(`student_record`.`event`) AS `count` FROM `events` LEFT JOIN `student_record` ON `events`.`event_name` = `student_record`.`event` GROUP BY `events`.`event_id`, `events`.`event_name`;";
         eventsROw=qp.getAllRecord(query);
         eventModel = new DefaultTableModel(eventsROw,eventColumn);
         manageEventTable.setModel(eventModel);
         manageEventTable.getColumnModel().getColumn(3).setPreferredWidth(200);
-
+        manageEventTable.getColumnModel().getColumn(4).setPreferredWidth(25);
+        manageEventTable.getColumnModel().getColumn(0).setPreferredWidth(20);
+        manageEventTable.getColumnModel().getColumn(7).setPreferredWidth(15);
+        JTableHeader tableHeader = manageEventTable.getTableHeader();
+        tableHeader.setPreferredSize(new Dimension(tableHeader.getWidth(), 32));
         
+    }
+    
+    public void displayTimeSpinner(String time, JSpinner spinner){
+        int hour = (time.contains("pm"))? Integer.parseInt(time.substring(0, 2).replace("0", "").replace(":", "").replaceAll("[a-zA-Z]", ""))+12:Integer.parseInt(time.substring(0, 2).replace("0", "").replace(":", "").replaceAll("[a-zA-Z]", ""));        
+//        int hour = Integer.parseInt(time.substring(0, 2).replace("0", "").replace(":", ""));
+        int minute = Integer.parseInt(time.substring(2,5).replace(":", "").replaceAll(" ", ""));
+        
+        System.out.println("Time Spinner"+hour+" "+minute);
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, hour);
+        calendar.set(Calendar.MINUTE, minute);
+        Date startTime = calendar.getTime();
+
+        SpinnerDateModel spinnerDateModel = new SpinnerDateModel(startTime, null, null, Calendar.HOUR_OF_DAY);
+        spinner.setModel(spinnerDateModel);  // Update the model of the provided spinner
+
+        SimpleDateFormat format = new SimpleDateFormat("hh:mm a");
+        JSpinner.DateEditor dateEditor = new JSpinner.DateEditor(spinner, format.toPattern());
+        spinner.setEditor(dateEditor);
+
+        System.out.println("Time Spinner");
     }
     
     public String getRowData(JTable table, DefaultTableModel tableModel, int row){
@@ -287,7 +373,7 @@ public class HomePanel extends javax.swing.JFrame {
     public void insertStudentAttendance(String rfidId){
         System.out.println("Inserting Student Attendance");
         String studentId, lastName, firstName, middleInit,timeIn=time,timeOut= null, status, course, year, block;
-        String query = "Select * FROM student_info WHERE `rfid_id`= '"+rfidId+"'";
+        String query = "Select * FROM student_info WHERE `rfid_id`= '"+rfidId+"' AND `course` IN ("+courseInvolved+") AND `year` IN ("+yearInvolved+")";
         String[] result=null;
         try{
             result = qp.getSpecificRow(query);
@@ -307,46 +393,50 @@ public class HomePanel extends javax.swing.JFrame {
             year= result[9];
             block= result[11];
             String query1="";
+            
+            String name="";
+            if(firstName.contains(" ")){
+                        name = lastName+" "+firstName.substring(0, 1)+""+firstName.substring(firstName.indexOf(" ")+1,firstName.indexOf(" ")+2 )+".                ";
+                     }
+                     else{
+                         name = lastName+" "+firstName.substring(0, 1)+".                      ";
+                     }
+                     String courseYear = course+" "+year+""+block;
+                     String nameCourse = name.substring(0,16)+courseYear;
             System.out.println(scannedRFID.toString());
+            
             if (!scannedRFID.contains(rfidId)){
                 scannedRFID.add(rfidId);
                 scanTime.add(time);
                 scanType.add("Time-in");
                 query1 = "INSERT into `student_record` (`student_id`,`rfid_id`,`event`,`date`,`time_in`,`time_out`,`status`) VALUES "
-                    + "('"+studentId+"','"+rfidId+"','"+event+"','"+date+"',STR_TO_DATE('"+time+"', '%h:%i %p'),NULL,'"+status+"')";
+                    + "('"+studentId+"','"+rfidId+"','"+rawEvent+"','"+date+"',STR_TO_DATE('"+time+"', '%h:%i %p'),NULL,'"+status+"')";
             }
             else{
                    
                 if(timedifference(time, scanTime.get(scannedRFID.indexOf(rfidId))) > 1 && scanType.get(scannedRFID.indexOf(rfidId)).equals("Time-in")){
                     scanType.set(scannedRFID.indexOf(rfidId),"Time-out");
-                    query1 = "UPDATE `student_record` SET `time_out` = STR_TO_DATE('"+time+"', '%h:%i %p') WHERE rfid_id ='"+rfidId+"'";    
+                    query1 = "UPDATE `student_record` SET `time_out` = STR_TO_DATE('"+time+"', '%h:%i %p') WHERE rfid_id ='"+rfidId+"' AND `event`= '"+rawEvent+"'";    
                 }
                 else{
                     System.out.println(lastName+" already timed-"+scanType.get(scannedRFID.indexOf(rfidId)).substring(5));
                     query1 = "";
+                    executeArduinoWrite("msg0"+("Already "+scanType.get(scannedRFID.indexOf(rfidId)).substring(5)+"      ").substring(0,16)+name+"          ",2);
                 }
                 }
                 System.out.println("Query is " +query1);
                  if(!query1.isEmpty()){
-                     String line="";
-                     if(firstName.contains(" ")){
-                        line = lastName+" "+firstName.substring(0, 1)+""+firstName.substring(firstName.indexOf(" ")+1,firstName.indexOf(" ")+2 )+".                ";
-                     }
-                     else{
-                         line = lastName+" "+firstName.substring(0, 1)+".                      ";
-                     }
-                     String line2 = course+" "+year+""+block;
-                     String lineWrite = line.substring(0,16)+line2;
                      qp.executeUpdate(query1);
-                     executeArduinoWrite(lineWrite);
+                     executeArduinoWrite(nameCourse,2);
                      displayRecentScans();
+                     displayStatistics();
                      updateStudentCount();
                      
                 }
             }
         else{
             System.out.println("No record found");
-            executeArduinoWrite("No Record Found! ID: "+rfidId+"                         ");
+            executeArduinoWrite("No Record Found! ID: "+rfidId+"                         ",2);
         }
         
     }
@@ -381,53 +471,7 @@ public class HomePanel extends javax.swing.JFrame {
 
     }
     
-    public boolean addEvent(String timeInStart,String timeInEnd,String timeOutStart,String timeOutEnd, String recentEvent, String event){
-        System.out.println("Adding event");
-        String timeIn = "'"+timeInStart+timeInEnd+"'";
-        String timeOut = "'"+timeOutStart+timeOutEnd+"'";
-        if (timeInStart == null && timeInEnd == null && timeOutStart==null && timeOutEnd==null){
-            timeIn=null;
-            timeOut=null;
-        }
-        
-        String course="", year="";
-        if(bscsCB.isSelected()){
-            course += bscsCB.getText()+",";
-        }if(bsitElectCB.isSelected()){
-            course += bsitElectCB.getText()+",";
-        }
-        if(bsitFoodTechCB.isSelected()){
-            course += bsitFoodTechCB.getText()+",";
-        }
-        if(bsfCB.isSelected()){
-            course += bsfCB.getText()+",";
-        }
-        if(beedCB.isSelected()){
-            course += beedCB.getText()+",";
-        }
-        if(bsedEnglish.isSelected()){
-            course += bsedEnglish.getText()+",";
-        }
-        if(bsedMathCB.isSelected()){
-            course += bsedMathCB.getText()+",";
-        }
-        if(bsm.isSelected()){
-            course += bsm.getText()+",";
-        }
-        
-        if(firstYearCb.isSelected()){
-            year += "1,";
-        }
-        if(seconYearCB.isSelected()){
-            year += "2,";
-        }
-        if(thirdYearCB.isSelected()){
-            year += "3,";
-        }
-        if(fourthYearCB.isSelected()){
-            year += "4,";
-        }
-        System.out.println("course is "+course);
+    public boolean addEvent(String recentEvent, String event, String year, String timeIn,String timeOut, String course){
         if(updateRecentEvent()&&qp.executeUpdate("Insert into `events`( `date`, `event_name`, `students_involved`, `year`, `time_in_range`, `time_out_range`,`recent_event`) values ('"+LocalDate.now().format(dateFormatter)+"','"+event+"','"+course
             +"','"+year+"',"+timeIn+","+timeOut+",'"+recentEvent+"')" )){
             return true;
@@ -435,8 +479,15 @@ public class HomePanel extends javax.swing.JFrame {
         return false;
     }
     
+    public boolean updateEvent( String event, String year, String timeIn,String timeOut, String course, String id){
+        if(qp.executeUpdate("UPDATE `events` SET `event_name`='"+event+"',`students_involved`='"+course+"',`year`='"+year+"',`time_in_range`="+timeIn+",`time_out_range`="+timeOut+" WHERE `event_id`="+Integer.parseInt(id)+"")){
+            df
+        }
+        return false;
+    }
+    
     public boolean checkEventExist(String event){
-      if(qp.getSpecificRow("SELECT *  FROM `events` WHERE `event_name` = '"+event+"'").length>0){
+      if(qp.getSpecificRow("SELECT *  FROM `events` WHERE `event_name` = '"+event+"'")!=null){
         return true;
     }
       return false;
@@ -452,7 +503,7 @@ public class HomePanel extends javax.swing.JFrame {
         }
     }
     
-    public void addStudentDialogConditions(){
+    public void manageEventDialogConditions(String type){
         DateFormatSymbols symbols = new DateFormatSymbols();
         symbols.setAmPmStrings(new String[]{"am", "pm"});
         SimpleDateFormat dateFormat = new SimpleDateFormat("h:mm a", symbols);
@@ -491,22 +542,75 @@ public class HomePanel extends javax.swing.JFrame {
             if((timedifference( timeOutStartFormatted,timeInEndFormatted))<0){
                 errorMsg += "- Time out is earlier than time in!\n";
             }
+            
             JOptionPane.showMessageDialog(null, errorMsg, "Add Event Error", JOptionPane.ERROR_MESSAGE);
         }
         else{
-            int confirm = JOptionPane.showConfirmDialog(null, "Confirm adding this event?", "Confirm",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE);
-        if(confirm == JOptionPane.YES_OPTION){
-            if(addEvent(timeInStartFormatted,timeInEndFormatted,timeOutStartFormatted,timeOutEndFormatted,"recentEvent", eventNameTF.getText())){
-            JOptionPane.showMessageDialog(null, "Event Added Successfully");
-            preProcess();
-            displayRecentScans();
-            displayManageStudentTable();
-            addEvent.setVisible(false);
+            String timeIn = "'"+timeInStart+timeInEnd+"'";
+            String timeOut = "'"+timeOutStart+timeOutEnd+"'";
+            if (timeInStart == null && timeInEnd == null && timeOutStart==null && timeOutEnd==null){
+                timeIn=null;
+                timeOut=null;
             }
-            timeInStart = timeInStartFormatted;
-            timeInEnd = timeInEndFormatted;
-            timeOutStart = timeOutStartFormatted;
-            timeOutEnd = timeOutEndFormatted;
+
+            String course="", year="";
+            if(bscsCB.isSelected()){
+                course += bscsCB.getText()+",";
+            }if(bsitElectCB.isSelected()){
+                course += bsitElectCB.getText()+",";
+            }
+            if(bsitFoodTechCB.isSelected()){
+                course += bsitFoodTechCB.getText()+",";
+            }
+            if(bsfCB.isSelected()){
+                course += bsfCB.getText()+",";
+            }
+            if(beedCB.isSelected()){
+                course += beedCB.getText()+",";
+            }
+            if(bsedEnglish.isSelected()){
+                course += bsedEnglish.getText()+",";
+            }
+            if(bsedMathCB.isSelected()){
+                course += bsedMathCB.getText()+",";
+            }
+            if(bsm.isSelected()){
+                course += bsm.getText()+",";
+            }
+
+            if(firstYearCb.isSelected()){
+                year += "1,";
+            }
+            if(seconYearCB.isSelected()){
+                year += "2,";
+            }
+            if(thirdYearCB.isSelected()){
+                year += "3,";
+            }
+            if(fourthYearCB.isSelected()){
+                year += "4,";
+            }
+            System.out.println("course is "+course);
+            
+            int confirm = JOptionPane.showConfirmDialog(null, "Confirm "+type+"ing this event?", "Confirm",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE);
+        if(confirm == JOptionPane.YES_OPTION){
+            if(type.equals("add")){
+                if(addEvent("recentEvent", eventNameTF.getText(),year,timeIn, timeOut,course)){
+                    JOptionPane.showMessageDialog(null, "Event Added Successfully");
+                    preProcess();
+                    displayRecentScans();
+                    displayManageStudentTable();
+                    addEvent.setVisible(false);
+                    timeInStart = timeInStartFormatted;
+                    timeInEnd = timeInEndFormatted; 
+                    timeOutStart = timeOutStartFormatted;
+                    timeOutEnd = timeOutEndFormatted;
+                }
+            }
+            else{
+                updateEvent( eventNameTF.getText(), year, timeIn, timeOut, course, getRowData(manageEventTable, eventModel,0));
+            }
+            
             
         }
         }
@@ -577,7 +681,7 @@ public class HomePanel extends javax.swing.JFrame {
         jLabel20 = new javax.swing.JLabel();
         jLabel21 = new javax.swing.JLabel();
         jLabel22 = new javax.swing.JLabel();
-        addStudentRecordBtn1 = new javax.swing.JButton();
+        addEventRecordBtn = new javax.swing.JButton();
         firstYearCb = new javax.swing.JCheckBox();
         seconYearCB = new javax.swing.JCheckBox();
         thirdYearCB = new javax.swing.JCheckBox();
@@ -594,7 +698,7 @@ public class HomePanel extends javax.swing.JFrame {
         timeInStartSpinner = new javax.swing.JSpinner(sm);
         Calendar calendar2 = Calendar.getInstance();
         calendar2.set(Calendar.HOUR_OF_DAY, 8);
-        calendar2.set(Calendar.MINUTE, 0);
+        calendar2.set(Calendar.MINUTE, 00);
         Date startTime2 = calendar2.getTime();
 
         SpinnerDateModel sm2 = new SpinnerDateModel(startTime2, null, null, Calendar.HOUR_OF_DAY);
@@ -636,6 +740,7 @@ public class HomePanel extends javax.swing.JFrame {
         jComboBox2 = new javax.swing.JComboBox<>();
         jScrollPane4 = new javax.swing.JScrollPane();
         manageEventTable = new javax.swing.JTable();
+        testLabel = new javax.swing.JLabel();
         mainPanel = new javax.swing.JPanel();
         ribbonPanel = new javax.swing.JPanel();
         addEventBtn = new javax.swing.JButton();
@@ -655,10 +760,10 @@ public class HomePanel extends javax.swing.JFrame {
         enableAttendanceBtn = new javax.swing.JToggleButton();
         arduinoStatus = new javax.swing.JLabel();
         statisticsPanel = new javax.swing.JPanel();
-        totalPresent = new javax.swing.JLabel();
+        totalStudentStats = new javax.swing.JLabel();
         line = new javax.swing.JPanel();
         jLabel2 = new javax.swing.JLabel();
-        totalPresent1 = new javax.swing.JLabel();
+        totalPresent = new javax.swing.JLabel();
         jScrollPane2 = new javax.swing.JScrollPane();
         studentPerCourseTable = new javax.swing.JTable();
         timedOut = new javax.swing.JLabel();
@@ -1098,16 +1203,22 @@ public class HomePanel extends javax.swing.JFrame {
 
         jLabel18.setText("Event Name:");
 
+        eventNameTF.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                eventNameTFActionPerformed(evt);
+            }
+        });
+
         jLabel20.setText("Students:");
 
         jLabel21.setText("Time-in:");
 
         jLabel22.setText("Time-out");
 
-        addStudentRecordBtn1.setText("Add");
-        addStudentRecordBtn1.addActionListener(new java.awt.event.ActionListener() {
+        addEventRecordBtn.setText("Add");
+        addEventRecordBtn.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                addStudentRecordBtn1ActionPerformed(evt);
+                addEventRecordBtnActionPerformed(evt);
             }
         });
 
@@ -1219,7 +1330,7 @@ public class HomePanel extends javax.swing.JFrame {
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(timeOutEndSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE))))
                     .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                        .addComponent(addStudentRecordBtn1)
+                        .addComponent(addEventRecordBtn)
                         .addGroup(addEventLayout.createSequentialGroup()
                             .addGroup(addEventLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                                 .addGroup(addEventLayout.createSequentialGroup()
@@ -1283,7 +1394,7 @@ public class HomePanel extends javax.swing.JFrame {
                         .addComponent(timeOutStartSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(jLabel22)))
                 .addGap(15, 15, 15)
-                .addComponent(addStudentRecordBtn1)
+                .addComponent(addEventRecordBtn)
                 .addGap(28, 28, 28))
         );
 
@@ -1438,12 +1549,17 @@ public class HomePanel extends javax.swing.JFrame {
 
         updateEventBtn.setFont(new java.awt.Font("Tahoma", 0, 8)); // NOI18N
         updateEventBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_edit_property_40px.png"))); // NOI18N
-        updateEventBtn.setText("Update Event");
+        updateEventBtn.setText("Edit Event");
         updateEventBtn.setToolTipText("Update Event");
         updateEventBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         updateEventBtn.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         updateEventBtn.setMargin(new java.awt.Insets(2, 2, 2, 2));
         updateEventBtn.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        updateEventBtn.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                updateEventBtnActionPerformed(evt);
+            }
+        });
 
         deleteEventBtn.setFont(new java.awt.Font("Tahoma", 0, 8)); // NOI18N
         deleteEventBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_delete_document_40px.png"))); // NOI18N
@@ -1506,6 +1622,7 @@ public class HomePanel extends javax.swing.JFrame {
 
         jComboBox2.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
 
+        manageEventTable.setAutoCreateRowSorter(true);
         manageEventTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null},
@@ -1517,12 +1634,16 @@ public class HomePanel extends javax.swing.JFrame {
                 "Title 1", "Title 2", "Title 3", "Title 4"
             }
         ));
+        manageEventTable.setEditingColumn(1);
+        manageEventTable.setEditingRow(1);
         manageEventTable.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 manageEventTableMouseClicked(evt);
             }
         });
         jScrollPane4.setViewportView(manageEventTable);
+
+        testLabel.setText("test");
 
         javax.swing.GroupLayout jPanel6Layout = new javax.swing.GroupLayout(jPanel6);
         jPanel6.setLayout(jPanel6Layout);
@@ -1533,7 +1654,9 @@ public class HomePanel extends javax.swing.JFrame {
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 931, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(jPanel6Layout.createSequentialGroup()
-                        .addGap(644, 644, 644)
+                        .addGap(9, 9, 9)
+                        .addComponent(testLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 125, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(510, 510, 510)
                         .addComponent(jComboBox2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jTextField2, javax.swing.GroupLayout.PREFERRED_SIZE, 211, javax.swing.GroupLayout.PREFERRED_SIZE)))
@@ -1545,7 +1668,8 @@ public class HomePanel extends javax.swing.JFrame {
                 .addGap(14, 14, 14)
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jTextField2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jComboBox2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(jComboBox2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(testLabel))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 380, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(14, Short.MAX_VALUE))
@@ -1800,11 +1924,11 @@ public class HomePanel extends javax.swing.JFrame {
         statisticsPanel.setBackground(new java.awt.Color(255, 255, 255));
         statisticsPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
 
-        totalPresent.setFont(new java.awt.Font("Century Gothic", 1, 18)); // NOI18N
-        totalPresent.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        totalPresent.setText("/1290");
-        totalPresent.setVerticalAlignment(javax.swing.SwingConstants.BOTTOM);
-        totalPresent.setHorizontalTextPosition(javax.swing.SwingConstants.LEFT);
+        totalStudentStats.setFont(new java.awt.Font("Century Gothic", 1, 18)); // NOI18N
+        totalStudentStats.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        totalStudentStats.setText("/1290");
+        totalStudentStats.setVerticalAlignment(javax.swing.SwingConstants.BOTTOM);
+        totalStudentStats.setHorizontalTextPosition(javax.swing.SwingConstants.LEFT);
 
         line.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(0, 0, 0), 2, true));
 
@@ -1822,11 +1946,11 @@ public class HomePanel extends javax.swing.JFrame {
         jLabel2.setFont(new java.awt.Font("Consolas", 1, 18)); // NOI18N
         jLabel2.setText("Students Present");
 
-        totalPresent1.setFont(new java.awt.Font("Century Gothic", 1, 48)); // NOI18N
-        totalPresent1.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-        totalPresent1.setText("0");
-        totalPresent1.setVerticalAlignment(javax.swing.SwingConstants.BOTTOM);
-        totalPresent1.setHorizontalTextPosition(javax.swing.SwingConstants.RIGHT);
+        totalPresent.setFont(new java.awt.Font("Century Gothic", 1, 48)); // NOI18N
+        totalPresent.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        totalPresent.setText("0");
+        totalPresent.setVerticalAlignment(javax.swing.SwingConstants.BOTTOM);
+        totalPresent.setHorizontalTextPosition(javax.swing.SwingConstants.RIGHT);
 
         studentPerCourseTable.setAutoCreateRowSorter(true);
         studentPerCourseTable.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
@@ -1876,9 +2000,9 @@ public class HomePanel extends javax.swing.JFrame {
                                 .addComponent(line, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))))
                     .addGroup(statisticsPanelLayout.createSequentialGroup()
                         .addGap(44, 44, 44)
-                        .addComponent(totalPresent1, javax.swing.GroupLayout.PREFERRED_SIZE, 108, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(totalPresent, javax.swing.GroupLayout.PREFERRED_SIZE, 108, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(totalPresent, javax.swing.GroupLayout.PREFERRED_SIZE, 74, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addComponent(totalStudentStats, javax.swing.GroupLayout.PREFERRED_SIZE, 74, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap(34, Short.MAX_VALUE))
         );
         statisticsPanelLayout.setVerticalGroup(
@@ -1886,8 +2010,8 @@ public class HomePanel extends javax.swing.JFrame {
             .addGroup(statisticsPanelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(statisticsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(totalPresent1, javax.swing.GroupLayout.PREFERRED_SIZE, 82, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(totalPresent))
+                    .addComponent(totalPresent, javax.swing.GroupLayout.PREFERRED_SIZE, 82, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(totalStudentStats))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jLabel2)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1957,6 +2081,7 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void addEventBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addEventBtnActionPerformed
         // TODO add your handling code here:
+        addEventRecordBtn.setText("Add");
         addEvent.setVisible(true);
         addEvent.setLocationRelativeTo(null);
     }//GEN-LAST:event_addEventBtnActionPerformed
@@ -1972,18 +2097,26 @@ public class HomePanel extends javax.swing.JFrame {
     private void enableAttendanceBtnMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_enableAttendanceBtnMouseClicked
         // TODO add your handling code here:
         if(!enableAttendanceBtn.isSelected()){
-            executeArduinoWrite("msg0   Attendance        Paused        ");
-            System.out.println("select");
+            executeArduinoWrite("msg0   Attendance        Paused        ",86400);
+            System.out.println("selected");
         }
         else{
-            executeArduinoWrite("msg1   Attendance       Resumed        ");
+            executeArduinoWrite("msg0   Attendance       Resumed        ",0);
         }
     }//GEN-LAST:event_enableAttendanceBtnMouseClicked
 
-    private void addStudentRecordBtn1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addStudentRecordBtn1ActionPerformed
+    private void addEventRecordBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addEventRecordBtnActionPerformed
         // TODO add your handling code here:
-        addStudentDialogConditions();
-    }//GEN-LAST:event_addStudentRecordBtn1ActionPerformed
+        
+        if(addEventRecordBtn.getText().equals("Add")){
+            manageEventDialogConditions("add");
+        }
+        else{
+            manageEventDialogConditions("edit");
+        }
+        
+        displayEvents();
+    }//GEN-LAST:event_addEventRecordBtnActionPerformed
 
     private void bsedMathCBActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bsedMathCBActionPerformed
         // TODO add your handling code here:
@@ -2094,6 +2227,7 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void manageEventTableMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_manageEventTableMouseClicked
         // TODO add your handling code here:
+        testLabel.setText(getRowData(manageEventTable, eventModel,1));
         if(getRowData(manageEventTable, eventModel,2).equals(date) && !event.equals(getRowData(manageEventTable, eventModel,1)) ){
             resumeEventBtn.setEnabled(true);
         }
@@ -2104,8 +2238,56 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void resumeEventBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_resumeEventBtnActionPerformed
         // TODO add your handling code here:
-        
+         int confirm = JOptionPane.showConfirmDialog(null, "Confirm resume event?", "Confirm",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE);
+        if(confirm == JOptionPane.YES_OPTION){
+            updateRecentEvent();
+            if(qp.executeUpdate("UPDATE `events` SET `recent_event`= 'recentEvent' WHERE `event_name` = '"+getRowData(manageEventTable, eventModel, 1)+"'")){
+                JOptionPane.showMessageDialog(null, "Event Resumed Successfully");
+                preProcess();
+                displayRecentScans();
+                displayManageStudentTable();
+                displayEvents();
+                displayStatistics();
+                displayLCDMessage(0);
+              
+            }
+            
+        }
     }//GEN-LAST:event_resumeEventBtnActionPerformed
+
+    private void eventNameTFActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_eventNameTFActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_eventNameTFActionPerformed
+
+    private void updateEventBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_updateEventBtnActionPerformed
+        // TODO add your handling code here:
+        addEventRecordBtn.setText("Save");
+        String courseIncluded = getRowData(manageEventTable, eventModel, 3);
+        String yearIncluded = getRowData(manageEventTable, eventModel, 4);
+        
+        
+        eventNameTF.setText(getRowData(manageEventTable, eventModel, 1));
+        allCoursesCB.setSelected((courseIncluded.contains("All Courses")));
+        bscsCB.setSelected((courseIncluded.contains("BSCS") || courseIncluded.contains("All Courses")));
+        bsitElectCB.setSelected((courseIncluded.contains("BSIT-Elect") || courseIncluded.contains("All Courses")));
+        bsitFoodTechCB.setSelected((courseIncluded.contains("BSIT-Food Tech") || courseIncluded.contains("All Courses")));
+        bsfCB.setSelected((courseIncluded.contains("BSF") || courseIncluded.contains("All Courses")));
+        beedCB.setSelected((courseIncluded.contains("BEEd") || courseIncluded.contains("All Courses")));
+        bsedEnglish.setSelected((courseIncluded.contains("BSED- English") || courseIncluded.contains("All Courses")));
+        bsedMathCB.setSelected((courseIncluded.contains("SED- Math") || courseIncluded.contains("All Courses")));
+        bsm.setSelected((courseIncluded.contains("BSM") || courseIncluded.contains("All Courses")));
+        firstYearCb.setSelected((yearIncluded.contains("1")));
+        seconYearCB.setSelected((yearIncluded.contains("2")));
+        thirdYearCB.setSelected((yearIncluded.contains("3")));
+        fourthYearCB.setSelected((yearIncluded.contains("4")));
+        addEvent.setVisible(true);
+        
+        displayTimeSpinner(getRowData(manageEventTable, eventModel, 5).substring(0,8), timeInStartSpinner);
+        displayTimeSpinner(getRowData(manageEventTable, eventModel, 5).substring(7), timeInEndSpinner);
+        displayTimeSpinner(getRowData(manageEventTable, eventModel, 6).substring(0,8), timeOutStartSpinner);
+        displayTimeSpinner(getRowData(manageEventTable, eventModel, 6).substring(7), timeOutEndSpinner);
+        
+    }//GEN-LAST:event_updateEventBtnActionPerformed
 
     /**
      * @param args the command line arguments
@@ -2151,6 +2333,7 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JDialog addEvent;
     private javax.swing.JButton addEventBtn;
     private javax.swing.JButton addEventBtn1;
+    private javax.swing.JButton addEventRecordBtn;
     private javax.swing.JTextField addFNameTF;
     private javax.swing.JTextField addIDNoTF;
     private javax.swing.JTextField addLNameTF;
@@ -2160,7 +2343,6 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JTextField addStatusTF;
     private javax.swing.JButton addStudentBtn;
     private javax.swing.JButton addStudentRecordBtn;
-    private javax.swing.JButton addStudentRecordBtn1;
     private javax.swing.JDialog addStudentsDialog;
     private javax.swing.JTextField addYearTF;
     private javax.swing.JCheckBox allCoursesCB;
@@ -2255,6 +2437,7 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JPanel statisticsPanel;
     private javax.swing.JTable studentPerCourseTable;
     private javax.swing.JDialog studentsList;
+    private javax.swing.JLabel testLabel;
     private javax.swing.JCheckBox thirdYearCB;
     private javax.swing.JSpinner timeInEndSpinner;
     private javax.swing.JSpinner timeInStartSpinner;
@@ -2263,7 +2446,7 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JLabel timedIn;
     private javax.swing.JLabel timedOut;
     private javax.swing.JLabel totalPresent;
-    private javax.swing.JLabel totalPresent1;
+    private javax.swing.JLabel totalStudentStats;
     private javax.swing.JButton updateEventBtn;
     private javax.swing.JButton updateStudentBtn;
     // End of variables declaration//GEN-END:variables
