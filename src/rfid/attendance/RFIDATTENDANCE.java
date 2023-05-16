@@ -49,8 +49,10 @@ public class RFIDATTENDANCE {
                     if (message.length() == 8) {
                         System.out.println("id is " + message);
                         rfidId = message;
-                        home.addRFIDTF.setText(rfidId);
-                        System.out.println("why"+rfidId);
+                        if(home.addRFIDStatus.isSelected()){
+                            home.addRFIDTF.setText(rfidId);
+                        }
+                        //System.out.println("why"+rfidId);
                         if(home.enableAttendanceBtn.isSelected()){
                             home.insertStudentAttendance(rfidId);
                         }
