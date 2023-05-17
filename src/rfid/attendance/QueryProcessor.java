@@ -41,7 +41,7 @@ public class QueryProcessor {
         try
         {
             rs = stmt.executeQuery(query);
-            System.out.println("get all records "+query);
+            //System.out.println("get all records "+query);
            if(rs.last())
            {
                metadata=rs.getMetaData();
@@ -72,7 +72,7 @@ public class QueryProcessor {
     public boolean executeUpdate(String query) {
                try{
 	       stmt.executeUpdate(query);
-                   System.out.println("execute query "+query);
+                  // System.out.println("execute query "+query);
                return true;
                }
                catch(Exception e)
@@ -94,7 +94,7 @@ public class QueryProcessor {
 	       try
 	       {
 	           rs=stmt.executeQuery(query);
-                   System.out.println("get specific row "+query);
+                   //System.out.println("get specific row "+query);
 	           if(rs.first())
 	           {
 	               metadata=rs.getMetaData();
