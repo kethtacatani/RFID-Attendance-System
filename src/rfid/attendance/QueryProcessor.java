@@ -18,7 +18,7 @@ import javax.swing.JOptionPane;
 public class QueryProcessor {
         Statement stmt;
     ResultSet rs; //represents the result set of a database query .  refers to the row and column data contained in a ResultSet object
-    Connection con;
+    public Connection con;
     ResultSetMetaData metadata;
     
         public QueryProcessor()
