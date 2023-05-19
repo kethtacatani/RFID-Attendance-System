@@ -16,7 +16,7 @@ import javax.swing.JOptionPane;
 
 
 public class QueryProcessor {
-        Statement stmt;
+        public Statement stmt;
     ResultSet rs; //represents the result set of a database query .  refers to the row and column data contained in a ResultSet object
     public Connection con;
     ResultSetMetaData metadata;
@@ -82,7 +82,7 @@ public class QueryProcessor {
                    JOptionPane.showMessageDialog(null,"<html><body style='width: 750px;'>"+ e.getMessage()+"<br>"+query+"</body></html>", "MySQL Error", JOptionPane.ERROR_MESSAGE);
                    System.out.println(query);
 
-                   //System.out.println("e is "+e.getMessage());
+                   System.out.println("e is "+e.getMessage());
                    
                }
                return false;
@@ -137,6 +137,7 @@ public class QueryProcessor {
 	       }
 	       return record;
 	   }
+            
            
           
            

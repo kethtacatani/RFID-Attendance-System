@@ -3,6 +3,7 @@ package rfid.attendance;
 
 
 import com.fazecast.jSerialComm.SerialPort;
+import com.opencsv.CSVWriter;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -11,6 +12,8 @@ import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -53,6 +56,8 @@ import javax.swing.table.TableCellRenderer;
 //        recentRecordsTable.getTableHeader().setVisible(false);
 //        recentRecordsTable.setAutoResizeMode(recentRecordsTable.AUTO_RESIZE_ALL_COLUMNS);
 public class HomePanel extends javax.swing.JFrame {
+    
+    PreparedStatement statement;
     
     // <editor-fold defaultstate="collapsed" desc="Main Panel">    
     DefaultTableModel model;
@@ -115,6 +120,7 @@ public class HomePanel extends javax.swing.JFrame {
     Timer timer;
     String csvPath="";
     String inOut = "";
+    String csvQuery="";
     
   
       
@@ -234,20 +240,6 @@ public class HomePanel extends javax.swing.JFrame {
         displayLCDMessage(0);
     }
     
-//    public String getSpaces(String message){
-//        String space="";
-//           if(message.length()<16){
-//               int spaces = (16 - message.length()) / 2;
-//           
-//            for (int i=0;i<spaces;i++){
-//                space+=" ";
-//            }
-//            return space;
-//           }
-//           return "";
-//           
-//    }
-    
     public void displayLCDMessage(int delay){
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
         executor.schedule(() -> {
@@ -279,6 +271,85 @@ public class HomePanel extends javax.swing.JFrame {
         
     }
     
+    public static void exportToCSV(ResultSet resultSet, String fileName, String insertTable) throws SQLException, IOException {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setSelectedFile(new File(fileName));
+        int returnValue = fileChooser.showSaveDialog(null);
+        if (returnValue == JFileChooser.APPROVE_OPTION) {
+            
+            String filePath = fileChooser.getSelectedFile().getPath()+".csv";
+            try (FileWriter fileWriter = new FileWriter(filePath);
+                 CSVWriter csvWriter = new CSVWriter(fileWriter)) {
+                
+                String[] additionalRow = {insertTable};
+                csvWriter.writeNext(additionalRow);
+                // Write column headers
+                csvWriter.writeAll(resultSet, true);
+
+                // Write data rows
+                while (resultSet.next()) {
+                    String[] rowData = new String[resultSet.getMetaData().getColumnCount()];
+                    for (int i = 1; i <= resultSet.getMetaData().getColumnCount(); i++) {
+                        rowData[i - 1] = resultSet.getString(i);
+                        System.out.println(rowData);
+                    }
+                    csvWriter.writeNext(rowData);
+                }
+
+                JOptionPane.showMessageDialog(null, "Exported Successfully");
+            }
+            catch(Exception e){
+                JOptionPane.showMessageDialog(null, "Export Failed \n"+e);
+            }
+        }
+    }
+    
+    public boolean importCSV( String query, PreparedStatement statement){
+        try{
+            BufferedReader reader = new BufferedReader(new FileReader(csvPath));
+            
+            int row=1;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if(row==1){
+                    System.out.println("Table created "+line.substring(1, line.length()-8));
+                    qp.executeUpdate(line.substring(1, line.length()-1));
+                    
+                }
+                if (row >= 3) { 
+
+                    String[] data = line.split(",");
+                    System.out.println(Arrays.toString(data));
+                    for (int i = 0; i < data.length; i++) {
+                        if(data[i].matches("\\d+")){
+                            statement.setInt(i+1, Integer.parseInt(data[i].replaceAll("\"", "")));
+                        }else{
+                            System.out.println("dat "+i+""+data[i]);
+                             statement.setString(i + 1, data[i].replaceAll("\"", "").isEmpty()?null:data[i].replaceAll("\"", ""));
+                        }
+                       
+                    }
+
+                    // Execute the insert statement
+                    System.out.println("astaement "+statement.toString());
+                    statement.executeUpdate();
+                }
+                row++;
+                
+            }
+            JOptionPane.showMessageDialog(null,"File Import Success");
+            return true;
+        }
+        catch (Exception e){
+            JOptionPane.showMessageDialog(null, e,"File Import Error", JOptionPane.ERROR_MESSAGE);
+        }
+        return false;
+    }
+
+    /**
+     *
+     */
+
     public void clearScanRecords(){
         scannedRFID.clear();
         scanTime.clear();
@@ -346,6 +417,7 @@ public class HomePanel extends javax.swing.JFrame {
                 + " "+inOut+" AND CONCAT_WS(`student_info`.`student_id`,  `student_info`.`last_name`, `student_info`.`first_name`, `student_info`.`course`,"
                 + "`student_info`.`age`,`student_info`.`gender`,`student_info`.`address`,`student_info`.`contact_number`,`student_info`.`status`) LIKE '%"+searchTF.getText()+"%'";
         System.out.println(query);
+        csvQuery = query;
         tablerow = qp.getAllRecord(query);
         model = new DefaultTableModel(tablerow,tablecol);
         recentRecordsTable.setModel(model);
@@ -380,10 +452,10 @@ public class HomePanel extends javax.swing.JFrame {
                 if(table.getName()!= null && table.getName().equals("recentScanTable")){
                     
                     if((table.getValueAt(row, 5)!=null?table.getValueAt(row, 5).toString():"null").equals("Time-in")){
-                    bg=alternateColor;
+                    bg=whiteColor;
                     }
                     else if((table.getValueAt(row, 5)!=null?table.getValueAt(row, 5).toString():"null").equals("Time-out")){
-                        bg=whiteColor;
+                        bg=alternateColor;
                     }
                 }
                 
@@ -755,7 +827,7 @@ public class HomePanel extends javax.swing.JFrame {
                 displayManageStudentTable();
                 displayEvents();
                 displayStatistics();
-                displayLCDMessage(0);
+                displayLCDMessage(3);
               return true;
             }
             return false;
@@ -847,10 +919,10 @@ public class HomePanel extends javax.swing.JFrame {
                     displayRecentScans();
                     displayManageStudentTable();
                     addEvent.setVisible(false);
-                    timeInStart = timeInStartFormatted;
-                    timeInEnd = timeInEndFormatted; 
-                    timeOutStart = timeOutStartFormatted;
-                    timeOutEnd = timeOutEndFormatted;
+                    timeInStart = noTimeIn.isSelected()?null:timeInStartFormatted;
+                    timeInEnd = noTimeIn.isSelected()?null:timeInEndFormatted; 
+                    timeOutStart = noTimeOut.isSelected()?null:timeOutStartFormatted;
+                    timeOutEnd = noTimeOut.isSelected()?null:timeOutEndFormatted;
                 }
             }
             else{
@@ -1007,6 +1079,8 @@ public class HomePanel extends javax.swing.JFrame {
         manageEventTable = new javax.swing.JTable();
         courseSortEventCB = new javax.swing.JComboBox<>();
         yearSortEventCB = new javax.swing.JComboBox<>();
+        exportCSV1 = new javax.swing.JButton();
+        exportEventCSV = new javax.swing.JButton();
         csvFrame = new javax.swing.JFrame();
         csvName = new javax.swing.JTextField();
         browseCSV = new javax.swing.JButton();
@@ -1029,6 +1103,7 @@ public class HomePanel extends javax.swing.JFrame {
         jButton1 = new javax.swing.JButton();
         yearSortCB = new javax.swing.JComboBox<>();
         inOutCB = new javax.swing.JComboBox<>();
+        exportCSV = new javax.swing.JButton();
         jLabel16 = new javax.swing.JLabel();
         enableAttendanceBtn = new javax.swing.JToggleButton();
         arduinoStatus = new javax.swing.JLabel();
@@ -2137,6 +2212,26 @@ public class HomePanel extends javax.swing.JFrame {
             }
         });
 
+        exportCSV1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_import_csv_15px_2.png"))); // NOI18N
+        exportCSV1.setText("Export CSV");
+        exportCSV1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                exportCSV1ActionPerformed(evt);
+            }
+        });
+
+        exportEventCSV.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_import_csv_15px_2.png"))); // NOI18N
+        exportEventCSV.setText("Export CSV");
+        exportEventCSV.setEnabled(false);
+        exportEventCSV.setMaximumSize(new java.awt.Dimension(107, 25));
+        exportEventCSV.setMinimumSize(new java.awt.Dimension(107, 25));
+        exportEventCSV.setName(""); // NOI18N
+        exportEventCSV.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                exportEventCSVActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout jPanel6Layout = new javax.swing.GroupLayout(jPanel6);
         jPanel6.setLayout(jPanel6Layout);
         jPanel6Layout.setHorizontalGroup(
@@ -2146,13 +2241,19 @@ public class HomePanel extends javax.swing.JFrame {
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 931, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(jPanel6Layout.createSequentialGroup()
-                        .addGap(543, 543, 543)
+                        .addComponent(exportEventCSV, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(436, 436, 436)
                         .addComponent(courseSortEventCB, javax.swing.GroupLayout.PREFERRED_SIZE, 99, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(yearSortEventCB, javax.swing.GroupLayout.PREFERRED_SIZE, 62, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(searchEvent, javax.swing.GroupLayout.PREFERRED_SIZE, 211, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addGap(14, 14, 14))
+            .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(jPanel6Layout.createSequentialGroup()
+                    .addGap(426, 426, 426)
+                    .addComponent(exportCSV1)
+                    .addContainerGap(426, Short.MAX_VALUE)))
         );
         jPanel6Layout.setVerticalGroup(
             jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2164,10 +2265,16 @@ public class HomePanel extends javax.swing.JFrame {
                         .addComponent(searchEvent))
                     .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(courseSortEventCB, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(yearSortEventCB, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addComponent(yearSortEventCB, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(exportEventCSV, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 380, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(20, 20, 20))
+            .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(jPanel6Layout.createSequentialGroup()
+                    .addGap(212, 212, 212)
+                    .addComponent(exportCSV1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGap(212, 212, 212)))
         );
 
         javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
@@ -2201,7 +2308,6 @@ public class HomePanel extends javax.swing.JFrame {
 
         csvFrame.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         csvFrame.setMinimumSize(new java.awt.Dimension(420, 130));
-        csvFrame.setPreferredSize(new java.awt.Dimension(420, 130));
 
         browseCSV.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_browse_folder_25px.png"))); // NOI18N
         browseCSV.setText("Browse");
@@ -2214,8 +2320,8 @@ public class HomePanel extends javax.swing.JFrame {
             }
         });
 
-        uploadCSV.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_upload_25px_1.png"))); // NOI18N
-        uploadCSV.setText("Upload");
+        uploadCSV.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_download_25px_2.png"))); // NOI18N
+        uploadCSV.setText("Import");
         uploadCSV.setFocusPainted(false);
         uploadCSV.setIconTextGap(10);
         uploadCSV.addActionListener(new java.awt.event.ActionListener() {
@@ -2417,6 +2523,14 @@ public class HomePanel extends javax.swing.JFrame {
             }
         });
 
+        exportCSV.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_import_csv_15px_2.png"))); // NOI18N
+        exportCSV.setText("Export CSV");
+        exportCSV.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                exportCSVActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout recordsTablePanelLayout = new javax.swing.GroupLayout(recordsTablePanel);
         recordsTablePanel.setLayout(recordsTablePanelLayout);
         recordsTablePanelLayout.setHorizontalGroup(
@@ -2428,7 +2542,8 @@ public class HomePanel extends javax.swing.JFrame {
                         .addComponent(jScrollPane1)
                         .addContainerGap())
                     .addGroup(recordsTablePanelLayout.createSequentialGroup()
-                        .addGap(195, 195, 195)
+                        .addComponent(exportCSV)
+                        .addGap(88, 88, 88)
                         .addComponent(inOutCB, javax.swing.GroupLayout.PREFERRED_SIZE, 81, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(courseSortCB, javax.swing.GroupLayout.PREFERRED_SIZE, 99, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -2444,16 +2559,17 @@ public class HomePanel extends javax.swing.JFrame {
             recordsTablePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(recordsTablePanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(recordsTablePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(recordsTablePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, 26, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(inOutCB, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(recordsTablePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(searchTF, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(courseSortCB, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(yearSortCB, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(inOutCB, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addGap(11, 11, 11)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 438, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
+                        .addComponent(yearSortCB, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(exportCSV, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(17, 17, 17))
         );
 
         jLabel16.setText("Enable Attendance:");
@@ -2854,6 +2970,7 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void manageEventTableMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_manageEventTableMouseClicked
         // TODO add your handling code here:
+        exportEventCSV.setEnabled(true);
         updateEventBtn.setEnabled(true);
         clearEvent.setEnabled(true);
         deleteEventBtn.setEnabled(true);
@@ -2969,7 +3086,8 @@ public class HomePanel extends javax.swing.JFrame {
                 if(resumeEvent("School Day "+LocalDate.now().format(DateTimeFormatter.ofPattern("YY-MM-dd"))) && deleteEvent(id)){
                      JOptionPane.showMessageDialog(null, "Event Deleted Successfully");
                 }
-                clearScanRecords();
+                
+                
             }
             else{
                 if(deleteEvent(getRowData(manageEventTable, eventModel, 0))){
@@ -3130,8 +3248,6 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void importEventCSVBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_importEventCSVBtnActionPerformed
         // TODO add your handling code here:    
-//        ImportCSV importCsv = new ImportCSV();
-//        importCsv.setVisible(true);
         csvFrame.setVisible(true);
         csvFrame.setLocationRelativeTo(null);
     }//GEN-LAST:event_importEventCSVBtnActionPerformed
@@ -3149,35 +3265,31 @@ public class HomePanel extends javax.swing.JFrame {
             File selectedFile = fileChooser.getSelectedFile();
             // Perform any necessary operations with the selected file
             csvPath = selectedFile.getAbsolutePath();
-            csvName.setText(selectedFile.getAbsolutePath());
+            System.out.println("path "+csvPath);
+            String cvFileShortName= (selectedFile.getAbsolutePath().length()>50)?selectedFile.getAbsolutePath().substring(0, 20)+".....\\"+selectedFile.getName():selectedFile.getAbsolutePath();
+            csvName.setText(cvFileShortName);
+            
         }
     }//GEN-LAST:event_browseCSVActionPerformed
 
     private void uploadCSVActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_uploadCSVActionPerformed
         // TODO add your handling code here:
-        try{
-            BufferedReader reader = new BufferedReader(new FileReader(csvPath));
-            String insertQuery="INSERT INTO `student_record`(`student_id`, `rfid_id`, `event`, `date`, `time_in`, `time_out`, `status`) VALUES (";
-            PreparedStatement statement = qp.con.prepareStatement(insertQuery);
-
-            String line;
-            while ((line = reader.readLine()) != null) {
-                // Split the CSV line by the delimiter
-                String[] data = line.split(",");
-                
-                // Set the values in the prepared statement
-                statement.setString(1, data[0]);
-                statement.setString(2, data[1]);
-                statement.setString(3, data[2]);
-                
-                // Execute the insert statement
-                statement.executeUpdate();
+        String insertQuery="INSERT INTO `student_record`(`student_id`, `rfid_id`, `event`, `date`, `time_in`, `time_out`, `status`,`status_timeout`) VALUES (?,?,?,?,?,?,?,?)";
+        try {
+            if(!csvName.getText().contains(".....\\")){
+                csvPath= csvName.getText().trim();
+//                System.out.println("working man "+csvPath);
             }
-            
+            statement = qp.con.prepareStatement(insertQuery);
+            if(importCSV(insertQuery, statement)){
+                csvFrame.setVisible(false);
+                displayEvents();
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(HomePanel.class.getName()).log(Level.SEVERE, null, ex);
         }
-        catch (Exception e){
-            JOptionPane.showMessageDialog(null, e,"File Import Error", JOptionPane.ERROR_MESSAGE);
-        }
+        
+        
     }//GEN-LAST:event_uploadCSVActionPerformed
 
     private void inOutCBActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_inOutCBActionPerformed
@@ -3193,6 +3305,39 @@ public class HomePanel extends javax.swing.JFrame {
         }
         displayRecentScans();
     }//GEN-LAST:event_inOutCBActionPerformed
+
+    private void exportCSVActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exportCSVActionPerformed
+        // TODO add your handling code here:
+        String query = csvQuery;
+        try {
+            ResultSet resultSet = qp.stmt.executeQuery(query);
+            exportToCSV(resultSet, rawEvent,null);
+        } catch (SQLException | IOException e) {
+            e.printStackTrace();
+        }
+        
+    }//GEN-LAST:event_exportCSVActionPerformed
+
+    private void exportCSV1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exportCSV1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_exportCSV1ActionPerformed
+
+    private void exportEventCSVActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exportEventCSVActionPerformed
+        // TODO add your handling code here:v
+        String query = "SELECT `student_id`, `rfid_id`, `event`, DATE_FORMAT(`date`, '%Y-%m-%d') AS date_string, `time_in`, `time_out`, `status`, `status_timeout` FROM `student_record` WHERE `event`='"+getRowData(manageEventTable, eventModel, 1)+"'";
+        String insertQuery="INSERT INTO `events`( `date`, `event_name`, `students_involved`, `year`, `time_in_range`, `time_out_range`, `total_present`) VALUES ("
+                + "'"+getRowData(manageEventTable, eventModel, 2)+"','"+getRowData(manageEventTable, eventModel, 1)+"','"+(getRowData(manageEventTable, eventModel, 3).equals("All Courses")?"BSCS,BSIT-Elect,BSIT-FPST,BSF,BEEd,BSED- English,BSED- Math,BSM,":getRowData(manageEventTable, eventModel, 3))
+                +"','"+getRowData(manageEventTable, eventModel, 4)+"',"+(getRowData(manageEventTable, eventModel, 5)!=null?"'"+getRowData(manageEventTable, eventModel, 5)+"'":null)+","+(getRowData(manageEventTable, eventModel, 6)!=null?"'"+getRowData(manageEventTable, eventModel, 6)+"'":null)
+                +","+(getRowData(manageEventTable, eventModel, 7)!=null?"'"+getRowData(manageEventTable, eventModel, 7)+"'":null)+")";
+        System.out.println("export query is "+insertQuery);
+        try {
+            ResultSet resultSet = qp.stmt.executeQuery(query);
+
+            exportToCSV(resultSet,getRowData(manageEventTable, eventModel, 1),insertQuery);
+        } catch (SQLException | IOException e) {
+            e.printStackTrace();
+        }
+    }//GEN-LAST:event_exportEventCSVActionPerformed
 
     /**
      * @param args the command line arguments
@@ -3277,6 +3422,9 @@ public class HomePanel extends javax.swing.JFrame {
     public javax.swing.JToggleButton enableAttendanceBtn;
     private javax.swing.JLabel eventLabel;
     private javax.swing.JTextField eventNameTF;
+    private javax.swing.JButton exportCSV;
+    private javax.swing.JButton exportCSV1;
+    private javax.swing.JButton exportEventCSV;
     private javax.swing.JCheckBox firstYearCb;
     private javax.swing.JCheckBox fourthYearCB;
     private javax.swing.JComboBox<String> genderCB;
