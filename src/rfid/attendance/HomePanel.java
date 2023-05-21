@@ -3420,7 +3420,12 @@ public class HomePanel extends javax.swing.JFrame {
         // TODO add your handling code here:
         csvFrame.setVisible(true);
         csvFrame.setLocationRelativeTo(null);
-        String insertQuery="Insert  IGNORE  into `temp_student_info` values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        String insertQuery="";
+         if(checkIfMaindatabase()){
+             insertQuery="Insert  IGNORE  into `student_info` values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        }else{
+             insertQuery="Insert  IGNORE  into `temp_student_info` values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";   
+        }
         createtStatment(insertQuery);
     }//GEN-LAST:event_importStudentCSVActionPerformed
 
