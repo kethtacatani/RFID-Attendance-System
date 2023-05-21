@@ -18,18 +18,23 @@ import javax.swing.*;
 public class DBConnection {
       static Connection connect;
        static String status;
+       public static String databaseConnection ="Disconnected | MySQL";
    
   public static void setConnection()
   {
       try
       {
          //Class.forName("com.mysql.jdbc.Driver");
-          connect = DriverManager.getConnection("jdbc:mysql://localhost/rfid_attendance", "root", "");
+          connect = DriverManager.getConnection("jdbc:mysql://localhost/rfid_attendance", "root", "pass");
        //JOptionPane.showMessageDialog(null, "Succesfully Connected!");
+       databaseConnection ="Connected | MySQL";
+       
       }catch(Exception e)
      {
-         //JOptionPane.showMessageDialog(null, "Connection Failed");
+         JOptionPane.showMessageDialog(null,"-No connection from database. \nPlease read the instructions from ReadMe file.","Connection Failed",JOptionPane.ERROR);
          e.printStackTrace();
+        
+         
           
       }
   }

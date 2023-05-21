@@ -17,6 +17,7 @@ public class RFIDATTENDANCE {
     public static void main(String[] args) {
 
         QueryProcessor qp = new QueryProcessor();
+       
         HomePanel home = new HomePanel();
         home.setVisible(true);
 
