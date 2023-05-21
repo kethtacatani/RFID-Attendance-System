@@ -3443,7 +3443,12 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void exportStudentCSVBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exportStudentCSVBtnActionPerformed
         // TODO add your handling code here:s
-        String query = "SELECT * FROM `temp_student_info` ";
+        String query = "";
+         if(checkIfMaindatabase()){
+             query="SELECT * FROM `student_info` ";
+        }else{
+             query="SELECT * FROM `temp_student_info` ";
+        }
         try {
             ResultSet resultSet = qp.stmt.executeQuery(query);
             exportToCSV(resultSet, "student_infos"+date,"Comment");
