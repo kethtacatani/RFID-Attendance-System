@@ -25,7 +25,7 @@ public class DBConnection {
       try
       {
          //Class.forName("com.mysql.jdbc.Driver");
-          connect = DriverManager.getConnection("jdbc:mysql://localhost/rfid_attendance", "root", "pass");
+          connect = DriverManager.getConnection("jdbc:mysql://localhost/rfid_attendance2", "root", "pass");
        //JOptionPane.showMessageDialog(null, "Succesfully Connected!");
        databaseConnection ="Connected | MySQL";
        

@@ -115,7 +115,7 @@ public class HomePanel extends javax.swing.JFrame {
     String rawEvent="";
     String courseInvolved = "\'BSCS\',\'BSIT-Elect\',\'BSIT-FPST\',\'BSF\',\'BEEd\',\'BSED- English\',\'BSED- Math\',\'BSM\',";
     String yearInvolved= "\'1\',\'2\',\'3 Tech\',\'4\'";
-    String rawCourseInvolved="BSCS,BSIT-Elect,BSIT-FPST,BSF,";
+    String rawCourseInvolved="BSCS,BSIT-Elect,BSIT-FPST,BSF,BEEd,BSED- English,BSED- Math,BSM,";
     String rawYearInvolved="1,2,3,4,";
     int totalStudents = 0;
     String timeInStart = "";
@@ -129,6 +129,7 @@ public class HomePanel extends javax.swing.JFrame {
     String csvPath="";
     String inOut = "";
     String csvQuery="";
+    String csvType="";
     
   
       
@@ -360,8 +361,8 @@ public class HomePanel extends javax.swing.JFrame {
               
                     System.out.println("array is "+Arrays.toString(data));
                     System.out.println(data[7]);
-                    for (int i = 0; i < data.length; i++) {
-                        if(data[i].matches("\\d+") && !data[i].substring(0,3).contains("09") && !data[i].substring(0,4).contains("639")){
+                    for (int i = 0; i < data.length-(data.length==15?1:0); i++) {
+                        if(data[i].matches("\\d+") && i!=8){
                             statement.setInt(i+1, Integer.parseInt(data[i].replaceAll("\"", "").replaceAll(";", "")));
                         }else{
                             System.out.println("dat "+i+""+data[i]);
@@ -381,9 +382,53 @@ public class HomePanel extends javax.swing.JFrame {
             return true;
         }
         catch (Exception e){
-            JOptionPane.showMessageDialog(null, "-Possible Reasons"
-                    + "\nEvent already exist or has duplicate name."
-                    + "\n\tNo matching student records from database. Please add or import student records first.\n"+e,"File Import Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(null, e,"File Import Error", JOptionPane.ERROR_MESSAGE);
+        }
+        return false;
+    }
+    
+    public boolean overwritetEventCSV(String[][] allRecords){
+        try{
+            String eventName=allRecords[2][2];
+            for (int j = 0; j < allRecords.length; j++) {
+                String[] data = allRecords[j];
+                    System.out.println("array is "+Arrays.toString(data));
+                    System.out.println(data[7]);
+                        
+                        if( !qp.getSpecificField("Select `student_id` from `student_record` WHERE `student_id`="+data[0]+" AND `event` = '"+data[2]+"'").isEmpty()){
+                            System.out.println("edit");
+                            createtStatment("UPDATE `student_record` SET `student_id`=?,`rfid_id`=?,`event`=?,`date`=?,`time_in`=?,`time_out`=?,`status`=?,`status_timeout`=? WHERE `student_id`="+data[0]+" AND `event` = '"+data[2]+"'");
+                        }
+                        else{
+                            createtStatment("INSERT IGNORE into `student_record` values (?,?,?,?,?,?,?,?)");
+                        }
+                        
+                        System.out.println(data.length);
+                            for (int i = 0; i < data.length; i++) {
+                                System.out.println("data");
+                                
+                                if(i==2){
+                                    statement.setString(i+1,eventName);
+                                }
+                                else if(data[i].matches("\\d+")){
+                                    statement.setInt(i+1, Integer.parseInt(data[i].replaceAll("\"", "").replaceAll(";", "")));
+                                }
+                                else{
+                                    System.out.println("dat "+i+""+data[i]);
+                                     statement.setString(i + 1, data[i].replaceAll("\"", "").replaceAll(";", "").isEmpty()?null:data[i].replaceAll("\"", "").replaceAll(";", ""));
+                                     System.out.println("diri?");
+                                } 
+                            }
+                        // Execute the insert statement
+                        System.out.println("astaement "+statement.toString());
+                        statement.executeUpdate();
+
+            }
+            JOptionPane.showMessageDialog(null,"File Import Success");
+            return true;
+        }
+        catch (Exception e){
+            JOptionPane.showMessageDialog(null, e,"File Import Error", JOptionPane.ERROR_MESSAGE);
         }
         return false;
     }
@@ -652,22 +697,38 @@ public class HomePanel extends javax.swing.JFrame {
         
     }
     
-    public void displayCSVTable(){
+    public void displayCSVTable(String csv){
         addOddRowColorRenderer(viewCSVTable);
-        String query="Select * from `temp_student_info`";
-        viewCSVRow = qp.getAllRecord(query);
-        viewCSVModel = new DefaultTableModel(viewCSVRow, viewCSVColumn);
-        viewCSVTable.setModel(viewCSVModel);
-                manageStudentTable.getColumnModel().getColumn(0).setPreferredWidth(50);
-        viewCSVTable.getColumnModel().getColumn(1).setPreferredWidth(60);
-        viewCSVTable.getColumnModel().getColumn(5).setPreferredWidth(25);
-        viewCSVTable.getColumnModel().getColumn(6).setPreferredWidth(35);
-        viewCSVTable.getColumnModel().getColumn(10).setPreferredWidth(25);
-        viewCSVTable.getColumnModel().getColumn(12).setPreferredWidth(15);
-        viewCSVTable.getColumnModel().getColumn(13).setPreferredWidth(40);
-        JTableHeader tableHeader = viewCSVTable.getTableHeader();
-        tableHeader.setPreferredSize(new Dimension(tableHeader.getWidth(), 32));
-        viewCSVTable.getColumnModel().getColumn(12).setPreferredWidth(50);
+        
+        if(csv.equals("event")){
+            String query="Select * from `temp_student_record`";
+            viewCSVRow = qp.getAllRecord(query);
+            viewCSVModel = new DefaultTableModel(viewCSVRow, eventColumn);
+            viewCSVTable.setModel(viewCSVModel);
+            viewCSVTable.getColumnModel().getColumn(0).setPreferredWidth(10);
+            viewCSVTable.getColumnModel().getColumn(2).setPreferredWidth(20);
+            viewCSVTable.getColumnModel().getColumn(3).setPreferredWidth(200);
+            viewCSVTable.getColumnModel().getColumn(4).setPreferredWidth(20);
+            viewCSVTable.getColumnModel().getColumn(7).setPreferredWidth(15);
+            JTableHeader tableHeader = viewCSVTable.getTableHeader();
+            tableHeader.setPreferredSize(new Dimension(tableHeader.getWidth(), 32));
+        }
+        else{
+            String query="Select * from `temp_student_info`";
+            viewCSVRow = qp.getAllRecord(query);
+            viewCSVModel = new DefaultTableModel(viewCSVRow, viewCSVColumn);
+            viewCSVTable.setModel(viewCSVModel);
+                    manageStudentTable.getColumnModel().getColumn(0).setPreferredWidth(50);
+            viewCSVTable.getColumnModel().getColumn(1).setPreferredWidth(60);
+            viewCSVTable.getColumnModel().getColumn(5).setPreferredWidth(25);
+            viewCSVTable.getColumnModel().getColumn(6).setPreferredWidth(35);
+            viewCSVTable.getColumnModel().getColumn(10).setPreferredWidth(25);
+            viewCSVTable.getColumnModel().getColumn(12).setPreferredWidth(15);
+            viewCSVTable.getColumnModel().getColumn(13).setPreferredWidth(40);
+            JTableHeader tableHeader = viewCSVTable.getTableHeader();
+            tableHeader.setPreferredSize(new Dimension(tableHeader.getWidth(), 32));
+            viewCSVTable.getColumnModel().getColumn(12).setPreferredWidth(50);
+        }
     }
     
     public void displayTimeSpinner(String time, JSpinner spinner){
@@ -756,7 +817,7 @@ public class HomePanel extends javax.swing.JFrame {
                     scannedRFID.add(rfidId);
                     scanTime.add(time);
                     scanType.add("Time-in");
-                    query1 = "INSERT into `student_record` (`student_id`,`rfid_id`,`event`,`date`,`time_in`,`time_out`,`status`) VALUES "
+                    query1 = "INSERT IGNORE into `student_record` (`student_id`,`rfid_id`,`event`,`date`,`time_in`,`time_out`,`status`) VALUES "
                            + "('"+studentId+"','"+rfidId+"','"+rawEvent+"','"+date+"',STR_TO_DATE('"+time+"', '%h:%i %p'),NULL,'"+status+"')"; 
                 }
       
@@ -1194,6 +1255,7 @@ public class HomePanel extends javax.swing.JFrame {
         resumeEventBtn = new javax.swing.JButton();
         clearEvent = new javax.swing.JButton();
         exportEventCSV = new javax.swing.JButton();
+        overWriteEvent = new javax.swing.JButton();
         jPanel6 = new javax.swing.JPanel();
         searchEvent = new javax.swing.JTextField();
         jScrollPane4 = new javax.swing.JScrollPane();
@@ -2317,6 +2379,21 @@ public class HomePanel extends javax.swing.JFrame {
             }
         });
 
+        overWriteEvent.setFont(new java.awt.Font("Tahoma", 0, 8)); // NOI18N
+        overWriteEvent.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_compose_40px.png"))); // NOI18N
+        overWriteEvent.setText("Overwrite");
+        overWriteEvent.setToolTipText("Overwrite existing event");
+        overWriteEvent.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        overWriteEvent.setEnabled(false);
+        overWriteEvent.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        overWriteEvent.setMargin(new java.awt.Insets(2, 3, 2, 3));
+        overWriteEvent.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        overWriteEvent.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                overWriteEventActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout jPanel5Layout = new javax.swing.GroupLayout(jPanel5);
         jPanel5.setLayout(jPanel5Layout);
         jPanel5Layout.setHorizontalGroup(
@@ -2324,6 +2401,8 @@ public class HomePanel extends javax.swing.JFrame {
             .addGroup(jPanel5Layout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(addEventBtn1, javax.swing.GroupLayout.PREFERRED_SIZE, 62, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(overWriteEvent)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(importEventCSVBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 62, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -2343,6 +2422,7 @@ public class HomePanel extends javax.swing.JFrame {
             .addGroup(jPanel5Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(overWriteEvent)
                     .addComponent(exportEventCSV)
                     .addComponent(clearEvent)
                     .addComponent(resumeEventBtn)
@@ -3226,6 +3306,7 @@ public class HomePanel extends javax.swing.JFrame {
         updateEventBtn.setEnabled(true);
         clearEvent.setEnabled(true);
         deleteEventBtn.setEnabled(true);
+        overWriteEvent.setEnabled(true);
         if(getRowData(manageEventTable, eventModel,2).equals(date) && !event.equals(getRowData(manageEventTable, eventModel,1))){
             resumeEventBtn.setEnabled(true);
         }
@@ -3524,22 +3605,40 @@ public class HomePanel extends javax.swing.JFrame {
         
         if(uploadCSV.getName().equals("event")){
             if(importCSV(statement)){
+                
                 csvFrame.setVisible(false);
                 displayEvents();
                 
             }
         }else if(uploadCSV.getName().equals("student")){
             qp.executeUpdate("DELETE FROM `temp_student_info`;");
+            csvType="student";
             if(importCSV(statement)){
                 csvFrame.setVisible(false);
                 displayManageStudentTable();
                 if(checkIfMaindatabase()){
                     checkCSV.setVisible(true);
-                    displayCSVTable();
+                    displayCSVTable(csvType);
                     checkCSV.setLocationRelativeTo(null);
                 }
-                
+                resetEvent();
+           
             }
+        }
+        else if(uploadCSV.getName().equals("overwrite")){
+            
+            int confirm = JOptionPane.showConfirmDialog(null, "Confirm overwriting this event?\nCSV File: "+csvName+"\nto Overwrite to Event: "+getRowData(manageEventTable, eventModel, 2), "Confirm",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE);
+            if(confirm == JOptionPane.YES_OPTION){
+                csvType="event";
+                if(importCSV(statement)){
+                    csvFrame.setVisible(false);
+                    checkCSV.setVisible(true);
+                    displayCSVTable(csvType);
+                    checkCSV.setLocationRelativeTo(null);
+
+                }
+            }
+            
         }
         
         
@@ -3626,44 +3725,97 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void approveAllRowActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_approveAllRowActionPerformed
         // TODO add your handling code here:
-        String[][] allRecords = qp.getAllRecord("SELECT * FROM `temp_student_info`");
-        importStudentCSV(allRecords);
+        String[][] allRecords = {{}};
+        if(uploadCSV.getName().equals("student")){
+            allRecords = qp.getAllRecord("SELECT * FROM `temp_student_info`");
+            if(importStudentCSV(allRecords)){
+                qp.executeUpdate("SELECT FROM `temp_student_info`");
+            }
+        }else if(uploadCSV.getName().equals("event")){
+           allRecords = qp.getAllRecord("SELECT * FROM `temp_student_record`");
+            if(overwritetEventCSV(allRecords)){
+                qp.executeUpdate("DELETE FROM `temp_student_record`");
+            }
+        }
+        displayCSVTable(csvType);
+        
+        
         
     }//GEN-LAST:event_approveAllRowActionPerformed
 
     private void pendingStudentCSVActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pendingStudentCSVActionPerformed
         // TODO add your handling code here:
         checkCSV.setVisible(true);
-        displayCSVTable();
+        displayCSVTable("student");
         checkCSV.setLocationRelativeTo(null);
     }//GEN-LAST:event_pendingStudentCSVActionPerformed
 
     private void approveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_approveActionPerformed
         // TODO add your handling code here:
-        String[][] allRecords = qp.getAllRecord("SELECT * FROM `temp_student_info` WHERE `student_id`="+getRowData(viewCSVTable, viewCSVModel, 1)+"");
-        System.out.println(Arrays.deepToString(allRecords));
-        if(importStudentCSV(allRecords)){
-            qp.executeUpdate("DELETE FROM `temp_student_info` where `student_id`="+getRowData(viewCSVTable, viewCSVModel, 1)+"");
-            displayManageStudentTable();
-            displayCSVTable();
+        String[][] allRecords ={{}};
+        String column="";
+        if(uploadCSV.getName().equals("student")){
+            allRecords = qp.getAllRecord("SELECT * FROM `temp_student_info` WHERE `student_id`="+getRowData(viewCSVTable, viewCSVModel, 1)+"");
+            column=getRowData(viewCSVTable, viewCSVModel, 1);
+            if(importStudentCSV(allRecords)){
+                qp.executeUpdate("DELETE FROM `temp_student_info` where `student_id`="+column+"");
+                displayManageStudentTable();
+                displayCSVTable(csvType);
+            }
+        }else if(uploadCSV.getName().equals("event")){
+            allRecords = qp.getAllRecord("SELECT * FROM `temp_student_record` WHERE `student_id`="+getRowData(viewCSVTable, viewCSVModel, 0)+" AND `event`='"+getRowData(viewCSVTable, viewCSVModel, 2)+"");            
+            column=getRowData(viewCSVTable, viewCSVModel, 0);
+            if(overwritetEventCSV(allRecords)){
+                qp.executeUpdate("DELETE FROM `temp_student_record` where `student_id`="+column+"");
+                displayEvents();
+                displayCSVTable(csvType);
+            }
         }
+        
         
     }//GEN-LAST:event_approveActionPerformed
 
     private void declineRowActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_declineRowActionPerformed
         // TODO add your handling code here:
-        deleteStudent("temp_student_info",getRowData(viewCSVTable, viewCSVModel, 1));
-        displayCSVTable();
+        int confirm = JOptionPane.showConfirmDialog(null, "Confirm declining "+getRowData(viewCSVTable, viewCSVModel, 1)+"?", "Confirm",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE);
+        if(confirm == JOptionPane.YES_OPTION){
+            if(csvType.equals("student")){
+                deleteStudent("temp_student_info",getRowData(viewCSVTable, viewCSVModel, 1));
+            }
+            if(csvType.equals("event")){
+                deleteStudent("temp_student_record",getRowData(viewCSVTable, viewCSVModel, 1));
+            }
+        }
+        
+        displayCSVTable(csvType);
     }//GEN-LAST:event_declineRowActionPerformed
 
     private void declineAllRowActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_declineAllRowActionPerformed
         // TODO add your handling code here:
         int confirm = JOptionPane.showConfirmDialog(null, "Confirm declining all rows?", "Confirm",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE);
         if(confirm == JOptionPane.YES_OPTION){
-            qp.executeUpdate("DELETE FROM `temp_student_info`;");
-            displayCSVTable();
+            if(csvType.equals("student")){
+                qp.executeUpdate("DELETE FROM `temp_student_info`;");
+            }
+            if(csvType.equals("event")){
+                qp.executeUpdate("DELETE FROM `temp_student_record`;");
+            }
+            
+            displayCSVTable(csvType);
         }
     }//GEN-LAST:event_declineAllRowActionPerformed
+
+    private void overWriteEventActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_overWriteEventActionPerformed
+        // TODO add your handling code here:
+        csvFrame.setVisible(true);
+        csvFrame.setLocationRelativeTo(null);
+        uploadCSV.setName("overwrite");
+       // uploadCSV.setText("Overwrite");
+        //uploadCSV.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_compose_40px.png")));
+        String  insertQuery ="Insert  IGNORE  into `temp_student_record` values (?,?,?,?,?,?,?,?)";  
+        
+        createtStatment(insertQuery);
+    }//GEN-LAST:event_overWriteEventActionPerformed
 
     /**
      * @param args the command line arguments
@@ -3823,6 +3975,7 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JButton manageStudentsBtn;
     private javax.swing.JCheckBox noTimeIn;
     private javax.swing.JCheckBox noTimeOut;
+    private javax.swing.JButton overWriteEvent;
     private javax.swing.JButton pendingStudentCSV;
     private javax.swing.JButton recentEventsBtn;
     private javax.swing.JTable recentRecordsTable;
