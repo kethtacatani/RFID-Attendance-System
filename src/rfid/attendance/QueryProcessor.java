@@ -16,6 +16,7 @@ import javax.swing.JOptionPane;
 
 
 public class QueryProcessor {
+    boolean isConnected;
         public Statement stmt;
     ResultSet rs; //represents the result set of a database query .  refers to the row and column data contained in a ResultSet object
     public Connection con;
@@ -25,12 +26,15 @@ public class QueryProcessor {
     {
         try
         {
-            DBConnection.setConnection();
+            if(DBConnection.setConnection()){
+                isConnected=true;
+            }
             con = DBConnection.getConnection();
             stmt= con.createStatement();
             
         }catch(Exception e) {
             e.printStackTrace();
+            if(isConnected)
             JOptionPane.showMessageDialog(null, e.getMessage()+"\n", "MySQL Error", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -60,6 +64,7 @@ public class QueryProcessor {
         }catch(Exception e)
         {
             e.printStackTrace();
+            if(isConnected)
             JOptionPane.showMessageDialog(null,"<html><body style='width: 750px;'>"+ e.getMessage()+"<br>"+query+"</body></html>", "MySQL Error", JOptionPane.ERROR_MESSAGE);
             
             
@@ -79,6 +84,7 @@ public class QueryProcessor {
                {
                    e.printStackTrace();
                     System.out.println(query);
+                    if(isConnected)
                    JOptionPane.showMessageDialog(null,"<html><body style='width: 750px;'>"+ e.getMessage()+"<br>"+query+"</body></html>", "MySQL Error", JOptionPane.ERROR_MESSAGE);
                    System.out.println(query);
 
@@ -108,6 +114,7 @@ public class QueryProcessor {
 	       }catch(Exception e)
 	       {
                    e.printStackTrace();
+                   if(isConnected)
 	    	   JOptionPane.showMessageDialog(null,"<html><body style='width: 750px;'>"+ e.getMessage()+"<br>"+query+"</body></html>", "MySQL Error", JOptionPane.ERROR_MESSAGE);
 	       }
 	       return record;
@@ -133,6 +140,7 @@ public class QueryProcessor {
 	       }catch(Exception e)
 	       {
                    e.printStackTrace();
+                   if(isConnected)
 	    	   JOptionPane.showMessageDialog(null,"<html><body style='width: 750px;'>"+ e.getMessage()+"<br>"+query+"</body></html>", "MySQL Error", JOptionPane.ERROR_MESSAGE);
 	       }
 	       return record;

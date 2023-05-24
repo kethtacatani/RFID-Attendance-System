@@ -20,21 +20,22 @@ public class DBConnection {
        static String status;
        public static String databaseConnection ="Disconnected | MySQL";
    
-  public static void setConnection()
+  public static boolean setConnection()
   {
       try
       {
          //Class.forName("com.mysql.jdbc.Driver");
-          connect = DriverManager.getConnection("jdbc:mysql://localhost/rfid_attendance2", "root", "pass");
+          connect = DriverManager.getConnection("jdbc:mysql://localhost/rfid_attendance", "root", "pass1");
        //JOptionPane.showMessageDialog(null, "Succesfully Connected!");
        databaseConnection ="Connected | MySQL";
+       return true;
        
       }catch(Exception e)
      {
-         JOptionPane.showMessageDialog(null,"-No connection from database. \nPlease read the instructions from ReadMe file.","Connection Failed",JOptionPane.ERROR);
+         JOptionPane.showMessageDialog(null,"-No connection from database. \nPlease read the instructions from ReadMe file.","Connection Failed",JOptionPane.ERROR_MESSAGE);
          e.printStackTrace();
         
-         
+         return false;
           
       }
   }
