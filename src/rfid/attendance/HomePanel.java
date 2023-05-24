@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 import javax.swing.JOptionPane;
 import javax.swing.Timer;
 import javax.swing.table.DefaultTableModel;
-import static rfid.attendance.RFIDATTENDANCE.arduinoPort;
+import static rfid.attendance.RFIDConnection.arduinoPort;
 import java.sql.*;
 import java.text.DateFormatSymbols;
 import java.util.Calendar;
@@ -144,9 +144,11 @@ public class HomePanel extends javax.swing.JFrame {
     //RFIDATTENDANCE arduino;
     QueryProcessor qp;
     DBConnection db;
+    private RFIDConnection rfidCon;
     public HomePanel() {
         qp = new QueryProcessor();
         db = new DBConnection();
+        rfidCon = new RFIDConnection();
         initComponents();   
         preProcess();
         displayRecentScans();
@@ -245,6 +247,7 @@ public class HomePanel extends javax.swing.JFrame {
                 addEvent("recentEvent", event+" "+LocalDate.now().format(DateTimeFormatter.ofPattern("YY-MM-dd")), rawYearInvolved,null,null,rawCourseInvolved);
                 courseInvolved= rawCourseInvolved;
                 yearInvolved = rawYearInvolved;
+                
             }
             
             if(recentInfo[4]!=null){
@@ -283,6 +286,7 @@ public class HomePanel extends javax.swing.JFrame {
             
            String lcdMessage = (event+"                  ").substring(0,16)+"Tap RFID to Scan                ";
             arduinoPort.writeBytes(lcdMessage.getBytes(),lcdMessage.length());
+            //arduinoPort.writeBytes("clrg".getBytes(),"clrg".length());
         }, delay, TimeUnit.SECONDS);
 
         // Shutdown the executor when you no longer need it
@@ -867,13 +871,13 @@ public class HomePanel extends javax.swing.JFrame {
             System.out.println(scannedRFID.toString());
             
             if(timeInStart!=null && timeOutStart!=null && timedifference(timeOutEnd, time)<0 && !scannedRFID.contains(rfidId)){
-                executeArduinoWrite("Attendance","Closed",2);
+                executeArduinoWrite("ledrAttendance","Closed",2);
             }
             else if (!scannedRFID.contains(rfidId)){
                 System.out.println(time+" "+timeInStart+" "+rfidId+" "+firstName);
                 if( timeInStart!=null && timedifference(time, timeInStart) < 0){
                     
-                    executeArduinoWrite("Time-in","Too Early",2);
+                    executeArduinoWrite("ledrTime-in","Too Early",2);
                 }
                 else{
                     if(null!=timeInStart){
@@ -898,10 +902,10 @@ public class HomePanel extends javax.swing.JFrame {
                     //if time in is not null and too early
                     if( timeOutStart!=null && timedifference(time, timeOutStart) < 0){
                         if(timedifference(timeInEnd, time) > 0){
-                            executeArduinoWrite("Already "+scanType.get(scannedRFID.indexOf(rfidId)).substring(5),name,2);
+                            executeArduinoWrite("ledrAlready "+scanType.get(scannedRFID.indexOf(rfidId)).substring(5),name,2);
                         }
                         else{
-                            executeArduinoWrite("Time-out","Too Early",2);
+                            executeArduinoWrite("ledrTime-out","Too Early",2);
                         }
                         
                     }
@@ -927,7 +931,7 @@ public class HomePanel extends javax.swing.JFrame {
                         else{
                            // System.out.println(lastName+" already timed-"+scanType.get(scannedRFID.indexOf(rfidId)).substring(5));
                             query1 = "";
-                            executeArduinoWrite("Already "+scanType.get(scannedRFID.indexOf(rfidId)).substring(5),name,2);
+                            executeArduinoWrite("ledrAlready "+scanType.get(scannedRFID.indexOf(rfidId)).substring(5),name,2);
                         }
                         
                         
@@ -939,7 +943,7 @@ public class HomePanel extends javax.swing.JFrame {
                 System.out.println("Query is " +query1);
                  if(!query1.isEmpty()){
                      qp.executeUpdate(query1);
-                     executeArduinoWrite(name,courseYear,2);
+                     executeArduinoWrite("ledb"+name,courseYear,2);
                      displayEvents();
                      resetMainFrame();
                      
@@ -947,7 +951,7 @@ public class HomePanel extends javax.swing.JFrame {
             }
         else{
             System.out.println("No record found");
-            executeArduinoWrite("No Record Found!","ID: "+rfidId,2);
+            executeArduinoWrite("ledrNo Record Found!","ID: "+rfidId,2);
         }
         
     }
@@ -3254,7 +3258,7 @@ public class HomePanel extends javax.swing.JFrame {
     private void addStudentBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addStudentBtnActionPerformed
         addStudentRecordBtn.setText("Add");
         addStudentsDialog.setTitle("Add Student");
-        String rfidId = RFIDATTENDANCE.rfidId;
+        String rfidId = RFIDConnection.rfidId;
         addStudentsDialog.setVisible(true);
         addStudentsDialog.setLocationRelativeTo(null);
         addRFIDTF.setText(rfidId);
@@ -3311,6 +3315,7 @@ public class HomePanel extends javax.swing.JFrame {
         // TODO add your handling code here:
         if(!enableAttendanceBtn.isSelected()){
             executeArduinoWrite("Attendance","Paused",86400);
+           
             System.out.println("selected");
         }
         else{
@@ -3975,6 +3980,11 @@ public class HomePanel extends javax.swing.JFrame {
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
         // TODO add your handling code here:
         resetMainFrame();
+        RFIDConnection rfidCon = new RFIDConnection();
+       // rfidCon.main(args);
+       
+
+        
     }//GEN-LAST:event_jButton2ActionPerformed
 
     /**
