@@ -13,11 +13,24 @@ import com.fazecast.jSerialComm.SerialPort;
 public class RFIDConnection {
         public static SerialPort firstAvailableComPort;
         public static String rfidId;
+        public static String host;
         public static SerialPort arduinoPort = null;
+        static HomePanel home = new HomePanel();
+        
+        
     
     public static void main(String[] args) {
-        HomePanel home = new HomePanel();
+        
         home.setVisible(true);
+        rfidConnect();
+        
+        
+    }
+    
+    
+    public static void rfidConnect(){
+        
+        
         
         SerialPort[] allAvailableComPorts = SerialPort.getCommPorts();
 
@@ -27,7 +40,7 @@ public class RFIDConnection {
         arduinoPort = findArduinoPort(allAvailableComPorts);
         if (arduinoPort != null) {
             System.out.println("Arduino is connected on port: " + arduinoPort.getSystemPortName());
-            home.arduinoStatus.setText("Scan Status: Connected");
+            home.arduinoStatus.setText("<html><font color='green'>RFID Scanner: Connected</font></html>");
             
             
             
@@ -40,11 +53,13 @@ public class RFIDConnection {
             byte[] buffer = new byte[1024];
             String message = "";
             while (true) {
+           
                 //System.out.println("rip");
                 int bytesRead = arduinoPort.readBytes(buffer, buffer.length);
                 if (bytesRead > 0) {
                     String data = new String(buffer, 0, bytesRead);
                     message += data.trim();
+                    
                     if (message.length() == 8) {
                         System.out.println("id is " + message);
                         rfidId = message;
@@ -64,7 +79,7 @@ public class RFIDConnection {
         } else {
             //JOptionPane.showMessageDialog(null, "No RFID Scanner found!");
             System.out.println("Arduino is not connected. Please check the connection.");
-            home.arduinoStatus.setText("Scan Status: Disconnected");
+            home.arduinoStatus.setText("<html>RFID Scanner: <font color='red'>Disconnected</font></html>");
         }
     }
 

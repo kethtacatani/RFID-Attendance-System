@@ -14,6 +14,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -38,6 +40,7 @@ import java.util.Calendar;
 import java.util.Enumeration;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
@@ -49,7 +52,12 @@ import javax.swing.SpinnerDateModel;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.JTableHeader;
-import javax.swing.table.TableCellRenderer;
+import static rfid.attendance.QueryProcessor.host;
+import static rfid.attendance.QueryProcessor.database;
+import static rfid.attendance.QueryProcessor.username;
+import static rfid.attendance.QueryProcessor.password;
+import static rfid.attendance.QueryProcessor.customUser;
+
 
 /**
  *
@@ -107,6 +115,9 @@ public class HomePanel extends javax.swing.JFrame {
     ArrayList<String> scanTime = new ArrayList<>();
     ArrayList<String> scanType = new ArrayList<>();
     
+   
+    
+    
     LocalDate currentDate;
     LocalTime currentTime;
 
@@ -139,38 +150,28 @@ public class HomePanel extends javax.swing.JFrame {
     String csvFileName="";
     String selectedRowValue="";
     
+    
   
+    private ScheduledExecutorService executor;
+    private ScheduledFuture<?> scheduledTask;
       
     //RFIDATTENDANCE arduino;
     QueryProcessor qp;
-    DBConnection db;
-    private RFIDConnection rfidCon;
+    RFIDConnection rfidCon;
     public HomePanel() {
         qp = new QueryProcessor();
-        db = new DBConnection();
+        
         rfidCon = new RFIDConnection();
         initComponents();   
         preProcess();
         displayRecentScans();
         displayManageStudentTable();
-        databaseConnection.setText("Database: "+db.databaseConnection+" "+(checkIfMaindatabase()?"| Main":"| Local"));
+        databaseConnection.setText("<html>Database: "+(DBConnection.databaseConnection.equals("Connected | MySQL")?"<font color='green'>":"<font color='red'>")
+                +DBConnection.databaseConnection+" "+(checkIfMaindatabase()?"| Main":"| Local </font></html>"));
         
         
-        try {
-            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
-            while (networkInterfaces.hasMoreElements()) {
-                NetworkInterface networkInterface = networkInterfaces.nextElement();
-                Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
-                while (inetAddresses.hasMoreElements()) {
-                    InetAddress inetAddress = inetAddresses.nextElement();
-                    if (!inetAddress.isLoopbackAddress() && inetAddress.getAddress().length == 4) {
-                        System.out.println("IPv4 Address: " + inetAddress.getHostAddress());
-                    }
-                }
-            }
-        } catch (SocketException e) {
-            e.printStackTrace();
-        }
+        
+       
         
         eventLabel.setText(event);
         
@@ -188,16 +189,18 @@ public class HomePanel extends javax.swing.JFrame {
                 // Update the JLabel text
                 time = time.replaceAll("am", "AM").replaceAll("pm", "PM");
                 dateTimeLabel.setText(longDate+" | "+time );
-                System.out.println("updating "+longDate+" | "+time );
-                
+                //System.out.println("updating "+longDate+" | "+time );
             }
         });
+        
+
         timer.setInitialDelay(0);
         timer.start();
+
         updateStudentCount();
         displayStatistics();
-        displayLCDMessage(3);
         
+     
         
 
         // Start the timer
@@ -207,13 +210,13 @@ public class HomePanel extends javax.swing.JFrame {
     
     
     public void preProcess(){
-        System.out.println("Pre-Process");
+        //System.out.println("Pre-Process");
         String[][] records = qp.getAllRecord("SELECT 1 FROM `events` WHERE `recent_event` =  'recentEvent'");
         if(records!=null){
             String query1 ="Select `event_name`,`date`,`students_involved`, `year`,`time_in_range`,`time_out_range` from `events` WHERE `recent_event`='recentEvent'";
-            System.out.println("query is "+query1);
+            //System.out.println("query is "+query1);
             String[] recentInfo = qp.getSpecificRow(query1);
-            System.out.println("date is "+Arrays.toString(recentInfo));
+            //System.out.println("date is "+Arrays.toString(recentInfo));
             if(recentInfo[1].equals(LocalDate.now().format(dateFormatter))){
                 //if recentEvent date matched the current date
                 event = (recentInfo[0].length()>9 && recentInfo[0].substring(0,9).equals("School Da"))?"School Day":recentInfo[0];
@@ -225,7 +228,7 @@ public class HomePanel extends javax.swing.JFrame {
                 timeOutStart = (recentInfo[5]!=null)?recentInfo[5].split("(?<!\\d)(?=(\\d{1,2}:\\d{2}\\s*[ap]m))")[0]:null;
                 timeOutEnd = (recentInfo[5]!=null)?recentInfo[5].split("(?<!\\d)(?=(\\d{1,2}:\\d{2}\\s*[ap]m))")[1]:null; 
                 
-                System.out.println(" time "+timeInStart+" "+timeInEnd+" "+timeOutStart+" "+timeOutEnd);
+                //System.out.println(" time "+timeInStart+" "+timeInEnd+" "+timeOutStart+" "+timeOutEnd);
                 String query = "Select `rfid_id`, TIME_FORMAT(`time_in`, '%h:%i %p') AS formatted_time_in,"
                     + "CASE WHEN time_out IS NULL THEN 'Time-in' ELSE 'Time-out' END AS time_status from `student_record` WHERE `event`='"+recentInfo[0]+"'";
                 Object row[][]=qp.getAllRecord(query);
@@ -253,9 +256,17 @@ public class HomePanel extends javax.swing.JFrame {
             if(recentInfo[4]!=null){
                 timeInLabel.setText("Time-in: "+timeInStart+" - "+timeInEnd);
             }
+            else{
+                timeInLabel.setText("");
+            }
             if(recentInfo[5]!=null){
                 timeOutLabel.setText("Time-out: "+timeOutStart+" - "+timeOutEnd);
             }
+            else{
+                timeOutLabel.setText("");
+            }
+            System.out.println(recentInfo[5]);
+            System.out.println(recentInfo[4]);
             rawEvent= recentInfo[0];
             eventLabel.setText(event);
             String getYearInvolved = this.yearInvolved.substring(0, this.yearInvolved.length()-1);
@@ -272,38 +283,81 @@ public class HomePanel extends javax.swing.JFrame {
         else{
             //if no recentEvent exist or database in empty
             addEvent("recentEvent", event+" "+LocalDate.now().format(DateTimeFormatter.ofPattern("YY-MM-dd")), rawYearInvolved,null,null,rawCourseInvolved);
-            System.out.println("adding recent");
+            //System.out.println("adding recent");
             rawEvent= event+" "+LocalDate.now().format(DateTimeFormatter.ofPattern("YY-MM-dd"));
         }
-        displayLCDMessage(0);
+        displayLCDMessage(3);
     }
     
-    public void displayLCDMessage(int delay){
-        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-        executor.schedule(() -> {
-            // Code to be executed after the delay
-            
-            
-           String lcdMessage = (event+"                  ").substring(0,16)+"Tap RFID to Scan                ";
-            arduinoPort.writeBytes(lcdMessage.getBytes(),lcdMessage.length());
-            //arduinoPort.writeBytes("clrg".getBytes(),"clrg".length());
-        }, delay, TimeUnit.SECONDS);
+    public static void restartApplication() {
+        String javaBin = System.getProperty("java.home") + "/bin/java";
+        String classPath = ManagementFactory.getRuntimeMXBean().getClassPath();
+        String className = System.getProperty("sun.java.command");
 
-        // Shutdown the executor when you no longer need it
+        // Create a new process to restart the application
+        try {
+            ProcessBuilder builder = new ProcessBuilder(javaBin, "-cp", classPath, className);
+            builder.start();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+
+        // Exit the current instance of the application
+        System.exit(0);
+    }
+    
+//    public void checkArduinoConnection(int delay) {
+//    if (scheduledTask != null && !scheduledTask.isDone()) {
+//        // If there is a previous task running, cancel it
+//        scheduledTask.cancel(true);
+//    }
+//    executor = Executors.newSingleThreadScheduledExecutor();
+//    scheduledTask = executor.schedule(() -> {
+//        // Code to be executed after the delay
+//        
+//        String lcdMessage = "%ok";
+//        arduinoPort.writeBytes(lcdMessage.getBytes(), lcdMessage.length());
+//        checkArduinoConnection(3);
+//    }, delay, TimeUnit.SECONDS);
+//}
+ 
+    public void displayLCDMessage(int delay) {
+    
+
+    executor = Executors.newSingleThreadScheduledExecutor();
+    scheduledTask = executor.schedule(() -> {
+        // Code to be executed after the delay
+        
+        String lcdMessage = (event + "                  ").substring(0, 20) + "Tap RFID to Scan                ";
+        arduinoPort.writeBytes(lcdMessage.getBytes(), lcdMessage.length());
+
+    }, delay, TimeUnit.SECONDS);
+}
+
+public void cancelLCDMessage() {
+    if (scheduledTask != null && !scheduledTask.isDone()) {
+        // If there is a task running, cancel it
+        scheduledTask.cancel(true);
+    }
+    
+    // Shutdown the executor when you no longer need it
+    if (executor != null && !executor.isShutdown()) {
         executor.shutdown();
     }
+}
     
     public void executeArduinoWrite(String line1, String line2, int delay) {
         int newDelay=5;
         if(delay!=0){
             newDelay=delay;
         }
-        System.out.println(delay +" new "+newDelay);
-        System.out.println("Executing arduino write");
+        //System.out.println(delay +" new "+newDelay);
+        //System.out.println("Executing arduino write");
         
-        String message=(line1+"                  ").substring(0,16)+line2;
+        String message=(line1+"                  ").substring(0,20)+line2;
+        //System.out.println(message);
         if (arduinoPort != null && arduinoPort.isOpen()) {
-            System.out.println("port open for message");
+            //System.out.println("port open for message");
             arduinoPort.writeBytes(message.getBytes(), message.length());
             displayLCDMessage(newDelay);
         }
@@ -321,7 +375,7 @@ public class HomePanel extends javax.swing.JFrame {
             File selectedFile = fileChooser.getSelectedFile();
             // Perform any necessary operations with the selected file
             csvPath = selectedFile.getAbsolutePath();
-            System.out.println("path "+csvPath);
+            //System.out.println("path "+csvPath);
             String cvFileShortName= (selectedFile.getAbsolutePath().length()>50)?selectedFile.getAbsolutePath().substring(0, 20)+".....\\"+selectedFile.getName():selectedFile.getAbsolutePath();
             csvName.setText(cvFileShortName);
             csvFileName= selectedFile.getName();
@@ -368,7 +422,7 @@ public class HomePanel extends javax.swing.JFrame {
                     String[] rowData = new String[resultSet.getMetaData().getColumnCount()];
                     for (int i = 1; i <= resultSet.getMetaData().getColumnCount(); i++) {
                         rowData[i - 1] = resultSet.getString(i);
-                        System.out.println(rowData);
+                        //System.out.println(rowData);
                     }
                     csvWriter.writeNext(rowData);
                 }
@@ -384,15 +438,15 @@ public class HomePanel extends javax.swing.JFrame {
     public boolean importCSV(PreparedStatement statement){
         try{
             BufferedReader reader = new BufferedReader(new FileReader(csvPath));
-             System.out.println("Import path "+csvPath);
+             //System.out.println("Import path "+csvPath);
             int row=1;
             String line;
             while ((line = reader.readLine()) != null) {
-                //System.out.println("line is "+line.substring(0, 4).replaceAll("\"", "").replaceAll(";", ""));
+                ////System.out.println("line is "+line.substring(0, 4).replaceAll("\"", "").replaceAll(";", ""));
                 String[] columns = line.split(",");
                
                 if(row==1 && uploadCSV.getName().equals("event")){
-                    //System.out.println("Table created "+line.substring(1, line.length()-8));
+                    ////System.out.println("Table created "+line.substring(1, line.length()-8));
                     if(!checkEventExist(columns[7].replace("'", ""))){
                         qp.executeUpdate(line.replace("\"", ""));
                     }
@@ -405,12 +459,12 @@ public class HomePanel extends javax.swing.JFrame {
                     
                 }
                 if (row >= 3) { 
-                   // System.out.println("array is "+line);
+                   // //System.out.println("array is "+line);
                     String[] clone =  line.split(",");
                     //System.out.println("cloe "+Arrays.toString(clone));
                     String[] data = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
               
-                    System.out.println("array is "+Arrays.toString(data));
+                   // System.out.println("array is "+Arrays.toString(data));
                    // System.out.println(data[7]);
 //                    for (int i = 0; i < data.length-(!checkIfMaindatabase()&& uploadCSV.getName().equals("student")?1:0); i++) {
                     for (int i = 0; i < data.length; i++) {
@@ -466,9 +520,9 @@ public class HomePanel extends javax.swing.JFrame {
                             createtStatment("INSERT IGNORE into `student_record` values (?,?,?,?,?,?,?,?)");
                         }
                         
-                        System.out.println("legnth is"+data.length);
+                       // System.out.println("legnth is"+data.length);
                             for (int i = 0; i < data.length; i++) {
-                                System.out.println("data");
+                              //  System.out.println("data");
                                 
                                 if(i==2){
                                     statement.setString(i+1,eventName);
@@ -477,9 +531,9 @@ public class HomePanel extends javax.swing.JFrame {
                                     statement.setInt(i+1, Integer.parseInt(data[i].replaceAll("\"", "").replaceAll(";", "")));
                                 }
                                 else{
-                                    System.out.println("dat "+i+""+data[i]);
+                                   // System.out.println("dat "+i+""+data[i]);
                                      statement.setString(i + 1,data[i]==null || data[i].replaceAll("\"", "").replaceAll(";", "").isEmpty()?null:data[i].replaceAll("\"", "").replaceAll(";", ""));
-                                     System.out.println("diri?");
+                                  //   System.out.println("diri?");
                                 } 
                             }
                         // Execute the insert statement
@@ -506,7 +560,7 @@ public class HomePanel extends javax.swing.JFrame {
      
             for (int j = 0; j < allRecords.length; j++) {
                 String[] data = allRecords[j];
-                System.out.println("length "+allRecords.length);
+                //System.out.println("length "+allRecords.length);
                    // System.out.println("array is "+Arrays.toString(data));
                     //System.out.println(data[7]);
                     if(data[14].equals("delete")){
@@ -570,6 +624,7 @@ public class HomePanel extends javax.swing.JFrame {
         displayRecentScans();
         displayStatistics();
         updateStudentCount();
+        System.out.println("eh");
     }
     
     public boolean updateRecentEvent(){
@@ -625,7 +680,7 @@ public class HomePanel extends javax.swing.JFrame {
                 + "AND `course` LIKE '%"+((!courseSortCB.getSelectedItem().toString().equals("All Courses"))?courseSortCB.getSelectedItem().toString():"")+"%' "
                 + "AND `year` LIKE '%"+((!yearSortCB.getSelectedItem().toString().equals("Year"))?yearSortCB.getSelectedItem().toString():"")+"%' "
                 + " "+inOut+" AND CONCAT_WS(`student_info`.`student_id`,  `student_info`.`last_name`, `student_info`.`first_name`, `student_info`.`course`,"
-                + "`student_info`.`age`,`student_info`.`gender`,`student_info`.`address`,`student_info`.`contact_number`,`student_info`.`status`) LIKE '%"+searchTF.getText()+"%'";
+                + "`student_info`.`age`,`student_info`.`gender`,`student_info`.`address`,`student_info`.`contact_number`,`student_info`.`status`) LIKE '%"+searchTF.getText()+"%' ORDER BY time_in DESC, time_out DESC;";
         System.out.println(query);
         csvQuery = query;
         tablerow = qp.getAllRecord(query);
@@ -655,7 +710,7 @@ public class HomePanel extends javax.swing.JFrame {
             
             if (isSelected) {
                 // Row is selected, set the background to the selection color
-                System.out.println(row +"column "+column);
+               // System.out.println(row +"column "+column);
                 comp.setBackground(table.getSelectionBackground());
             } else {
                 
@@ -676,7 +731,7 @@ public class HomePanel extends javax.swing.JFrame {
             }
             
 //            Object column5Value = table.getValueAt(row, 5); // Assuming column5 index is 5
-//            System.out.println("Value of column5: " + (column5Value!=null?column5Value:"null"));
+//            //System.out.println("Value of column5: " + (column5Value!=null?column5Value:"null"));
         
             
             return comp;
@@ -686,7 +741,7 @@ public class HomePanel extends javax.swing.JFrame {
     
     public void displayManageStudentTable(){
         addOddRowColorRenderer(manageStudentTable);
-        System.out.println("Displaying Manage Student Table");
+        //System.out.println("Displaying Manage Student Table");
         String header="", headerCol="";
         header += (headerID.isSelected())?"`student_id`,":"";
         headerCol += (headerID.isSelected()) ? "\"ID\"," : "";
@@ -757,7 +812,7 @@ public class HomePanel extends javax.swing.JFrame {
                 + "`events`.`total_present`, `events`.`recent_event`) LIKE '%"+searchEvent.getText()+"%' "
                 + "GROUP BY `events`.`event_id`, `events`.`event_name` ORDER BY CASE WHEN `events`.`recent_event` = 'recentEvent' "
                 + "THEN 0 ELSE 1 END, `events`.`event_id` DESC;";
-        System.out.println("event "+query);
+        //System.out.println("event "+query);
         eventsROw=qp.getAllRecord(query);
         eventModel = new DefaultTableModel(eventsROw,eventColumn);
         manageEventTable.setModel(eventModel);
@@ -812,7 +867,7 @@ public class HomePanel extends javax.swing.JFrame {
 //        int hour = Integer.parseInt(time.substring(0, 2).replace("0", "").replace(":", ""));
         int minute = Integer.parseInt(time.substring(2,5).replace(":", "").replaceAll(" ", ""));
         
-        System.out.println("Time Spinner"+hour+" "+minute);
+        //System.out.println("Time Spinner"+hour+" "+minute);
 
         Calendar calendar = Calendar.getInstance();
         calendar.set(Calendar.HOUR_OF_DAY, hour);
@@ -826,7 +881,7 @@ public class HomePanel extends javax.swing.JFrame {
         JSpinner.DateEditor dateEditor = new JSpinner.DateEditor(spinner, format.toPattern());
         spinner.setEditor(dateEditor);
 
-        System.out.println("Time Spinner");
+        //System.out.println("Time Spinner");
     }
     
     public String getRowData(JTable table, DefaultTableModel tableModel, int row){
@@ -835,7 +890,7 @@ public class HomePanel extends javax.swing.JFrame {
 }
     
     public void insertStudentAttendance(String rfidId){
-        System.out.println("Inserting Student Attendance");
+        //System.out.println("Inserting Student Attendance");
         
         String studentId, lastName, firstName, middleInit,timeIn=time,timeOut= null, status, course, year, block;
         String query = "Select * FROM student_info WHERE `rfid_id`= '"+rfidId+"' AND `course` IN ("+courseInvolved+") AND `year` IN ("+yearInvolved+")";
@@ -848,7 +903,7 @@ public class HomePanel extends javax.swing.JFrame {
         }
         
         if(result!=null){
-            System.out.println("String is "+Arrays.toString(result));
+            //System.out.println("String is "+Arrays.toString(result));
             studentId = result[1];
             lastName = result[4];
             firstName= result[2];
@@ -858,7 +913,7 @@ public class HomePanel extends javax.swing.JFrame {
             year= result[10];
             block= result[12];
             String query1="";
-            System.out.println(scannedRFID+" "+scanTime+" "+scanType+" "+firstName);
+            //System.out.println(scannedRFID+" "+scanTime+" "+scanType+" "+firstName);
             String name="";
             if(firstName.trim().split("\\s+").length>1){
                   name = lastName+" "+firstName.substring(0, 1)+""+firstName.substring(firstName.indexOf(" ")+1,firstName.indexOf(" ")+2 )+".";
@@ -868,13 +923,13 @@ public class HomePanel extends javax.swing.JFrame {
             }
             String courseYear = course+" "+year+""+block;
            // String nameCourse = name.substring(0,16)+courseYear;
-            System.out.println(scannedRFID.toString());
+            //System.out.println(scannedRFID.toString());
             
             if(timeInStart!=null && timeOutStart!=null && timedifference(timeOutEnd, time)<0 && !scannedRFID.contains(rfidId)){
                 executeArduinoWrite("ledrAttendance","Closed",2);
             }
             else if (!scannedRFID.contains(rfidId)){
-                System.out.println(time+" "+timeInStart+" "+rfidId+" "+firstName);
+                //System.out.println(time+" "+timeInStart+" "+rfidId+" "+firstName);
                 if( timeInStart!=null && timedifference(time, timeInStart) < 0){
                     
                     executeArduinoWrite("ledrTime-in","Too Early",2);
@@ -898,20 +953,23 @@ public class HomePanel extends javax.swing.JFrame {
             }
             else{
                 if( scanType.get(scannedRFID.indexOf(rfidId)).equals("Time-in")){
-                   System.out.println(time+" "+timeOutStart+" "+rfidId+" "+firstName);
+                   //System.out.println(time+" "+timeOutStart+" "+rfidId+" "+firstName);
                     //if time in is not null and too early
                     if( timeOutStart!=null && timedifference(time, timeOutStart) < 0){
-                        if(timedifference(timeInEnd, time) > 0){
+                        System.out.println("diff "+timedifference(time, scanTime.get(scannedRFID.indexOf(rfidId))));
+                        if(timeInEnd!=null && timeInEnd!=null && timedifference(timeInEnd, time) > 0){
                             executeArduinoWrite("ledrAlready "+scanType.get(scannedRFID.indexOf(rfidId)).substring(5),name,2);
                         }
+                        
                         else{
                             executeArduinoWrite("ledrTime-out","Too Early",2);
                         }
                         
                     }
+                    
                     else{
                         //if time-out is not null
-                        if(null!=timeOutStart){
+                        if(null!=timeOutStart && timedifference(time, scanTime.get(scannedRFID.indexOf(rfidId))) > 1){
                             if(timedifference(time, timeOutStart) >= 0){
                                 status="On-Time";
                             }
@@ -929,18 +987,22 @@ public class HomePanel extends javax.swing.JFrame {
                             query1 = "UPDATE `student_record` SET `time_out` = STR_TO_DATE('"+time+"', '%h:%i %p') WHERE rfid_id ='"+rfidId+"' AND `event`= '"+rawEvent+"'";
                         }
                         else{
-                           // System.out.println(lastName+" already timed-"+scanType.get(scannedRFID.indexOf(rfidId)).substring(5));
-                            query1 = "";
-                            executeArduinoWrite("ledrAlready "+scanType.get(scannedRFID.indexOf(rfidId)).substring(5),name,2);
-                        }
+                        executeArduinoWrite("ledrAlready "+scanType.get(scannedRFID.indexOf(rfidId)).substring(5),name,2);
+                    }
+                        
                         
                         
                     
                     }   
+                     
                 }
+                else{
+                        executeArduinoWrite("ledrAlready "+scanType.get(scannedRFID.indexOf(rfidId)).substring(5),name,2);
+                    }
+                
                 
                 }
-                System.out.println("Query is " +query1);
+                //System.out.println("Query is " +query1);
                  if(!query1.isEmpty()){
                      qp.executeUpdate(query1);
                      executeArduinoWrite("ledb"+name,courseYear,2);
@@ -948,16 +1010,20 @@ public class HomePanel extends javax.swing.JFrame {
                      resetMainFrame();
                      
                 }
+//                 else if(query1.isEmpty() && timeOutStart==null){
+//                      executeArduinoWrite("ledrAlready "+scanType.get(scannedRFID.indexOf(rfidId)).substring(5),name,2);
+//                 }
+//                 
             }
         else{
-            System.out.println("No record found");
+            //System.out.println("No record found");
             executeArduinoWrite("ledrNo Record Found!","ID: "+rfidId,2);
         }
         
     }
     
     public long timedifference(String time1, String time2){
-        System.out.println("Getting time diffrence");
+        //System.out.println("Getting time diffrence");
         SimpleDateFormat format = new SimpleDateFormat("h:mm a");
         
         Date date1;
@@ -971,7 +1037,7 @@ public class HomePanel extends javax.swing.JFrame {
         } catch (ParseException ex) {
             JOptionPane.showMessageDialog(null, ex);
         }
-        System.out.println("diff "+differenceInMinutes);
+        //System.out.println("diff "+differenceInMinutes);
         return differenceInMinutes;
     }
     
@@ -993,13 +1059,13 @@ public class HomePanel extends javax.swing.JFrame {
     }
     
     public boolean checkIfStudentExistOnNewRecord(String id){
-        System.out.println("id "+id);
+        //System.out.println("id "+id);
         return qp.getSpecificRow("SELECT * FROM `temp_student_info` where `student_id`="+id+"")!=null;
     }
     
     public boolean addStudent(String table, String addType, String id, String rfid){
-        //System.out.println("adds "+getRowData(manageStudentTable, manageStudentModel, 0)+" "+rfid+" nor");
-        System.out.println("Adding student");
+        ////System.out.println("adds "+getRowData(manageStudentTable, manageStudentModel, 0)+" "+rfid+" nor");
+        //System.out.println("Adding student");
         String errorMessage="";
         String query="";
        
@@ -1021,7 +1087,7 @@ public class HomePanel extends javax.swing.JFrame {
                    +"',"+getRowData(manageStudentTable, manageStudentModel, 10)+",'"+getRowData(manageStudentTable, manageStudentModel, 11)+"'"
                         + ",'"+getRowData(manageStudentTable, manageStudentModel, 12)+ "','"+getRowData(manageStudentTable, manageStudentModel, 13)+"'"+addType+") ";
        }
-        System.out.println("add "+id+" "+addType+" nor");
+        //System.out.println("add "+id+" "+addType+" nor");
             errorMessage+=checkStudentIDRecord(id, table);
             errorMessage+=checkStudentRFIDRecord(rfid,table);
          
@@ -1172,7 +1238,7 @@ public class HomePanel extends javax.swing.JFrame {
             year += seconYearCB.isSelected() ? "2," : "";
             year += thirdYearCB.isSelected() ? "3," : "";
             year += fourthYearCB.isSelected() ? "4," : "";
-            System.out.println("course is "+course);
+            //System.out.println("course is "+course);
             
             String timeIn = (noTimeIn.isSelected()?null:"'"+timeInStartFormatted+timeInEndFormatted+"'");
             String timeOut = (noTimeOut.isSelected()?null:"'"+timeOutStartFormatted+timeOutEndFormatted+"'");
@@ -1209,7 +1275,7 @@ public class HomePanel extends javax.swing.JFrame {
             
             
         }
-            System.out.println(" ");
+            //System.out.println(" ");
         }
     }
 
@@ -1368,6 +1434,20 @@ public class HomePanel extends javax.swing.JFrame {
         declineAllRow = new javax.swing.JButton();
         declineRow = new javax.swing.JButton();
         settingsFrame = new javax.swing.JFrame();
+        tabPanels = new javax.swing.JTabbedPane();
+        jPanel7 = new javax.swing.JPanel();
+        jPanel8 = new javax.swing.JPanel();
+        jLabel1 = new javax.swing.JLabel();
+        hostCB = new javax.swing.JComboBox<>();
+        jLabel27 = new javax.swing.JLabel();
+        hostConnection = new javax.swing.JLabel();
+        hostCustom = new javax.swing.JTextField();
+        jLabel29 = new javax.swing.JLabel();
+        jButton1 = new javax.swing.JButton();
+        jLabel28 = new javax.swing.JLabel();
+        jLabel30 = new javax.swing.JLabel();
+        hostUsername = new javax.swing.JTextField();
+        hostPassword = new javax.swing.JPasswordField();
         loadingDialogFrame = new javax.swing.JFrame();
         progressBars = new javax.swing.JProgressBar();
         progressLbl = new javax.swing.JLabel();
@@ -2532,7 +2612,6 @@ public class HomePanel extends javax.swing.JFrame {
             }
         });
 
-        manageEventTable.setAutoCreateRowSorter(true);
         manageEventTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null},
@@ -2691,7 +2770,6 @@ public class HomePanel extends javax.swing.JFrame {
         );
 
         checkCSV.setMinimumSize(new java.awt.Dimension(975, 380));
-        checkCSV.setPreferredSize(new java.awt.Dimension(975, 380));
 
         viewCSVTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -2771,16 +2849,140 @@ public class HomePanel extends javax.swing.JFrame {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
+        settingsFrame.setMinimumSize(new java.awt.Dimension(560, 381));
+
+        javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
+        jPanel7.setLayout(jPanel7Layout);
+        jPanel7Layout.setHorizontalGroup(
+            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 510, Short.MAX_VALUE)
+        );
+        jPanel7Layout.setVerticalGroup(
+            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 336, Short.MAX_VALUE)
+        );
+
+        tabPanels.addTab("General", jPanel7);
+
+        jLabel1.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel1.setText("Database Connection:");
+
+        hostCB.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "localhost" }));
+
+        jLabel27.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel27.setText("Host:");
+
+        hostConnection.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        hostConnection.setText("Main");
+
+        hostCustom.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                hostCustomMouseClicked(evt);
+            }
+        });
+
+        jLabel29.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_help_15px_1.png"))); // NOI18N
+        jLabel29.setToolTipText("Check IpV4 in cmd, type ipconfig and input Ipv4 address here");
+
+        jButton1.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jButton1.setText("Save Connection");
+        jButton1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton1ActionPerformed(evt);
+            }
+        });
+
+        jLabel28.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel28.setText("Password:");
+
+        jLabel30.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel30.setText("Username:");
+
+        hostUsername.setText("root");
+
+        javax.swing.GroupLayout jPanel8Layout = new javax.swing.GroupLayout(jPanel8);
+        jPanel8.setLayout(jPanel8Layout);
+        jPanel8Layout.setHorizontalGroup(
+            jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel8Layout.createSequentialGroup()
+                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel8Layout.createSequentialGroup()
+                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jButton1))
+                    .addGroup(jPanel8Layout.createSequentialGroup()
+                        .addGap(16, 16, 16)
+                        .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(jPanel8Layout.createSequentialGroup()
+                                .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 158, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(hostConnection, javax.swing.GroupLayout.PREFERRED_SIZE, 158, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(jPanel8Layout.createSequentialGroup()
+                                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jPanel8Layout.createSequentialGroup()
+                                        .addComponent(jLabel27, javax.swing.GroupLayout.PREFERRED_SIZE, 158, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                        .addComponent(hostCB, javax.swing.GroupLayout.PREFERRED_SIZE, 126, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                        .addComponent(hostCustom, javax.swing.GroupLayout.PREFERRED_SIZE, 139, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jPanel8Layout.createSequentialGroup()
+                                        .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                            .addComponent(jLabel30, javax.swing.GroupLayout.PREFERRED_SIZE, 158, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                            .addComponent(jLabel28, javax.swing.GroupLayout.PREFERRED_SIZE, 158, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                        .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                            .addComponent(hostPassword)
+                                            .addComponent(hostUsername))))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(jLabel29, javax.swing.GroupLayout.PREFERRED_SIZE, 18, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addGap(0, 23, Short.MAX_VALUE)))
+                .addContainerGap())
+        );
+        jPanel8Layout.setVerticalGroup(
+            jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel8Layout.createSequentialGroup()
+                .addGap(22, 22, 22)
+                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel1)
+                    .addComponent(hostConnection))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel27)
+                    .addComponent(hostCB, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(hostCustom, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel29, javax.swing.GroupLayout.PREFERRED_SIZE, 22, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel30)
+                    .addComponent(hostUsername, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel28)
+                    .addComponent(hostPassword, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 160, Short.MAX_VALUE)
+                .addComponent(jButton1)
+                .addContainerGap())
+        );
+
+        tabPanels.addTab("Connection", jPanel8);
+
         javax.swing.GroupLayout settingsFrameLayout = new javax.swing.GroupLayout(settingsFrame.getContentPane());
         settingsFrame.getContentPane().setLayout(settingsFrameLayout);
         settingsFrameLayout.setHorizontalGroup(
             settingsFrameLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 540, Short.MAX_VALUE)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, settingsFrameLayout.createSequentialGroup()
+                .addContainerGap(20, Short.MAX_VALUE)
+                .addComponent(tabPanels, javax.swing.GroupLayout.PREFERRED_SIZE, 510, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(16, 16, 16))
         );
         settingsFrameLayout.setVerticalGroup(
             settingsFrameLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 361, Short.MAX_VALUE)
+            .addGroup(settingsFrameLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(tabPanels)
+                .addContainerGap())
         );
+
+        tabPanels.getAccessibleContext().setAccessibleName("TabPanels");
 
         loadingDialogFrame.setAlwaysOnTop(true);
         loadingDialogFrame.setLocationByPlatform(true);
@@ -3065,9 +3267,9 @@ public class HomePanel extends javax.swing.JFrame {
                         .addComponent(recentScanCount, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addGap(37, 37, 37)
                         .addComponent(arduinoStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 174, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(32, 32, 32)
-                        .addComponent(databaseConnection, javax.swing.GroupLayout.PREFERRED_SIZE, 228, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(18, 18, 18)
+                        .addComponent(databaseConnection, javax.swing.GroupLayout.PREFERRED_SIZE, 228, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(32, 32, 32)
                         .addComponent(jLabel16)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(enableAttendanceBtn)
@@ -3252,15 +3454,26 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void settingsBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_settingsBtnActionPerformed
         // TODO add your handling code here:
-  
+          hostConnection.setText(checkIfMaindatabase()?"Main":"Local");
+          hostUsername.setText(qp.username);
+          hostPassword.setText(qp.password);
+          hostCB.removeAllItems();
+          hostCB.addItem("localhost");
+          for (String host: qp.ipv4List){
+              hostCB.addItem(host);
+          }
+          hostCB.setSelectedItem(qp.host);
+          settingsFrame.setLocationRelativeTo(null);
+          settingsFrame.setVisible(true);
     }//GEN-LAST:event_settingsBtnActionPerformed
 
     private void addStudentBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addStudentBtnActionPerformed
         addStudentRecordBtn.setText("Add");
         addStudentsDialog.setTitle("Add Student");
         String rfidId = RFIDConnection.rfidId;
-        addStudentsDialog.setVisible(true);
         addStudentsDialog.setLocationRelativeTo(null);
+        addStudentsDialog.setVisible(true);
+        
         addRFIDTF.setText(rfidId);
         
         
@@ -3269,8 +3482,9 @@ public class HomePanel extends javax.swing.JFrame {
     private void addEventBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addEventBtnActionPerformed
         // TODO add your handling code here:
         addEventRecordBtn.setText("Add");
-        addEvent.setVisible(true);
         addEvent.setLocationRelativeTo(null);
+        addEvent.setVisible(true);
+        
     }//GEN-LAST:event_addEventBtnActionPerformed
 
     private void addStudentRecordBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addStudentRecordBtnActionPerformed
@@ -3316,7 +3530,7 @@ public class HomePanel extends javax.swing.JFrame {
         if(!enableAttendanceBtn.isSelected()){
             executeArduinoWrite("Attendance","Paused",86400);
            
-            System.out.println("selected");
+            //System.out.println("selected");
         }
         else{
             executeArduinoWrite("Attendance","Resumed",0);
@@ -3334,7 +3548,8 @@ public class HomePanel extends javax.swing.JFrame {
         else{
             manageEventDialogConditions("edit");
         }
-        displayEvents();
+        
+       
     }//GEN-LAST:event_addEventRecordBtnActionPerformed
 
     private void bsedMathCBActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bsedMathCBActionPerformed
@@ -3420,7 +3635,7 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void timeInStartSpinnerMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_timeInStartSpinnerMouseClicked
         // TODO add your handling code here:
-        //System.out.println("time in"+ timeInStart.toString());
+        ////System.out.println("time in"+ timeInStart.toString());
     }//GEN-LAST:event_timeInStartSpinnerMouseClicked
 
     private void timeInStartSpinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_timeInStartSpinnerStateChanged
@@ -3435,8 +3650,9 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void recentEventsBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_recentEventsBtnActionPerformed
         // TODO add your handling code here:
-        manageEventDialog.setVisible(true);
         manageEventDialog.setLocationRelativeTo(null);
+        manageEventDialog.setVisible(true);
+        
         displayEvents();
     }//GEN-LAST:event_recentEventsBtnActionPerformed
 
@@ -3580,7 +3796,7 @@ public class HomePanel extends javax.swing.JFrame {
             if(getRowData(manageEventTable, eventModel, 1).equals(rawEvent)){
                 resetMainFrame(); 
                 preProcess();
-                System.out.println("schol");
+                //System.out.println("schol");
             }
             
             displayEvents();
@@ -3637,8 +3853,9 @@ public class HomePanel extends javax.swing.JFrame {
         courseCB.setSelectedItem(getRowData(manageStudentTable, manageStudentModel, 11));
         blockCB.setSelectedItem(getRowData(manageStudentTable, manageStudentModel, 12));
         statusCB.setSelectedItem(getRowData(manageStudentTable, manageStudentModel, 13));
-        addStudentsDialog.setVisible(true);
         addStudentsDialog.setLocationRelativeTo(null);
+        addStudentsDialog.setVisible(true);
+        
         
         
        
@@ -3658,7 +3875,7 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void deleteStudentBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_deleteStudentBtnActionPerformed
         // TODO add your handling code here:
-        //System.out.println("row "+getRowData(manageStudentTable, manageStudentModel, 0));
+        ////System.out.println("row "+getRowData(manageStudentTable, manageStudentModel, 0));
         int confirm = JOptionPane.showConfirmDialog(null, "Confirm deleting this student?", "Confirm",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE);
         if(confirm == JOptionPane.YES_OPTION){
             String id=getRowData(manageStudentTable, manageStudentModel, 0);
@@ -3667,7 +3884,7 @@ public class HomePanel extends javax.swing.JFrame {
                         updateStudent(id,rfid,"temp_student_info",",`type`='delete'");
             }
             else if(!checkIfMaindatabase() && !checkIfStudentExistOnNewRecord(id)){
-                System.out.println("row "+id);        
+                //System.out.println("row "+id);        
                 addStudent("temp_student_info",",'delete'",id,rfid);
             }
             
@@ -3734,8 +3951,9 @@ public class HomePanel extends javax.swing.JFrame {
 
     private void importEventCSVBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_importEventCSVBtnActionPerformed
         // TODO add your handling code here:    
-        csvFrame.setVisible(true);
         csvFrame.setLocationRelativeTo(null);
+        csvFrame.setVisible(true);
+        
         uploadCSV.setName("event");
         String insertQuery="INSERT INTO `student_record`(`student_id`, `rfid_id`, `event`, `date`, `time_in`, `time_out`, `status`,`status_timeout`) VALUES (?,?,?,?,?,?,?,?)";
         createtStatment(insertQuery);
@@ -3763,9 +3981,10 @@ public class HomePanel extends javax.swing.JFrame {
                 csvFrame.setVisible(false);
                 displayManageStudentTable();
                 if(checkIfMaindatabase()){
+                    checkCSV.setLocationRelativeTo(null);
                     checkCSV.setVisible(true);
                     displayCSVTable(csvType);
-                    checkCSV.setLocationRelativeTo(null);
+                    
                 }
                 resetMainFrame();
             }
@@ -3777,9 +3996,10 @@ public class HomePanel extends javax.swing.JFrame {
                 csvType="event";
                 if(importCSV(statement)){
                     csvFrame.setVisible(false);
+                    checkCSV.setLocationRelativeTo(null);
                     checkCSV.setVisible(true);
                     displayCSVTable(csvType);
-                    checkCSV.setLocationRelativeTo(null);
+                    
 
                 }
             }
@@ -3801,6 +4021,9 @@ public class HomePanel extends javax.swing.JFrame {
             inOut="AND `time_out` IS NOT NULL";
         }
         displayRecentScans();
+        
+        
+        
     }//GEN-LAST:event_inOutCBActionPerformed
 
     private void exportCSVActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exportCSVActionPerformed
@@ -3836,7 +4059,7 @@ public class HomePanel extends javax.swing.JFrame {
                 + "'"+getRowData(manageEventTable, eventModel, 2)+"','"+getRowData(manageEventTable, eventModel, 1)+"','"+(getRowData(manageEventTable, eventModel, 3).equals("All Courses")?"BSCS,BSIT-Elect,BSIT-FPST,BSF,BEEd,BSED- English,BSED- Math,BSM,":getRowData(manageEventTable, eventModel, 3))
                 +"','"+getRowData(manageEventTable, eventModel, 4)+"',"+(getRowData(manageEventTable, eventModel, 5)!=null?"'"+getRowData(manageEventTable, eventModel, 5)+"'":null)+","+(getRowData(manageEventTable, eventModel, 6)!=null?"'"+getRowData(manageEventTable, eventModel, 6)+"'":null)
                 +","+(getRowData(manageEventTable, eventModel, 7)!=null?"'"+getRowData(manageEventTable, eventModel, 7)+"'":null)+")";
-        System.out.println("export query is "+insertQuery);
+        //System.out.println("export query is "+insertQuery);
         try {
             ResultSet resultSet = qp.stmt.executeQuery(query);
 
@@ -3945,7 +4168,7 @@ public class HomePanel extends javax.swing.JFrame {
                 deleteStudent("temp_student_record",getRowData(viewCSVTable, viewCSVModel, 1));
             }
         }
-        System.out.println("type "+csvType);
+        //System.out.println("type "+csvType);
         
         displayCSVTable(csvType);
     }//GEN-LAST:event_declineRowActionPerformed
@@ -3978,14 +4201,36 @@ public class HomePanel extends javax.swing.JFrame {
     }//GEN-LAST:event_overWriteEventActionPerformed
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
-        // TODO add your handling code here:
+            // TODO add your handling code here:
+        restartApplication();
+        displayLCDMessage(3);
+        preProcess();
         resetMainFrame();
-        RFIDConnection rfidCon = new RFIDConnection();
-       // rfidCon.main(args);
-       
-
-        
     }//GEN-LAST:event_jButton2ActionPerformed
+
+    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+        // TODO add your handling code here:
+        
+        
+        host=hostCustom.getText().isEmpty()?hostCB.getSelectedItem().toString():hostCustom.getText().toString();
+        System.out.println("custom "+host);
+        username=hostUsername.getText();
+        password=hostPassword.getText();
+        database="rfid_attendance";
+        
+        customUser=true;
+        qp = new QueryProcessor();
+        
+        settingsFrame.setVisible(false);
+        preProcess();
+        resetMainFrame();
+        
+    }//GEN-LAST:event_jButton1ActionPerformed
+
+    private void hostCustomMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_hostCustomMouseClicked
+        // TODO add your handling code here:
+       
+    }//GEN-LAST:event_hostCustomMouseClicked
 
     /**
      * @param args the command line arguments
@@ -4095,10 +4340,17 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JCheckBox headerRFID;
     private javax.swing.JCheckBox headerStatus;
     private javax.swing.JCheckBox headerYear;
+    private javax.swing.JComboBox<String> hostCB;
+    private javax.swing.JLabel hostConnection;
+    private javax.swing.JTextField hostCustom;
+    private javax.swing.JPasswordField hostPassword;
+    private javax.swing.JTextField hostUsername;
     private javax.swing.JButton importEventCSVBtn;
     private javax.swing.JButton importStudentCSV;
     private javax.swing.JComboBox<String> inOutCB;
+    private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
+    private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
     private javax.swing.JLabel jLabel12;
@@ -4117,7 +4369,11 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel24;
     private javax.swing.JLabel jLabel25;
     private javax.swing.JLabel jLabel26;
+    private javax.swing.JLabel jLabel27;
+    private javax.swing.JLabel jLabel28;
+    private javax.swing.JLabel jLabel29;
     private javax.swing.JLabel jLabel3;
+    private javax.swing.JLabel jLabel30;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
@@ -4130,6 +4386,8 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
+    private javax.swing.JPanel jPanel7;
+    private javax.swing.JPanel jPanel8;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
@@ -4169,6 +4427,7 @@ public class HomePanel extends javax.swing.JFrame {
     private javax.swing.JComboBox<String> statusCB;
     private javax.swing.JTable studentPerCourseTable;
     private javax.swing.JDialog studentsList;
+    private javax.swing.JTabbedPane tabPanels;
     private javax.swing.JCheckBox thirdYearCB;
     private javax.swing.JSpinner timeInEndSpinner;
     private javax.swing.JLabel timeInLabel;

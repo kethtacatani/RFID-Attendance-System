@@ -18,6 +18,8 @@ public class RFIDATTENDANCE {
     
     public static void main(String[] args) {
 
+        
+        
         QueryProcessor qp = new QueryProcessor();
         RFIDConnection rfid = new RFIDConnection();
         rfid.main(args);
