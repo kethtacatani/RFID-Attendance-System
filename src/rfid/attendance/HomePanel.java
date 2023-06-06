@@ -322,8 +322,10 @@ public class HomePanel extends javax.swing.JFrame {
 //}
  
     public void displayLCDMessage(int delay) {
-    
-
+       if (scheduledTask != null && !scheduledTask.isDone()) {
+        // If there is a previous task running, cancel it
+        scheduledTask.cancel(true);
+    }
     executor = Executors.newSingleThreadScheduledExecutor();
     scheduledTask = executor.schedule(() -> {
         // Code to be executed after the delay
@@ -436,6 +438,8 @@ public void cancelLCDMessage() {
     }
     
     public boolean importCSV(PreparedStatement statement){
+        
+        
         try{
             BufferedReader reader = new BufferedReader(new FileReader(csvPath));
              //System.out.println("Import path "+csvPath);
@@ -492,6 +496,11 @@ public void cancelLCDMessage() {
             if (row > 3) {
                 statement.executeBatch();
             }
+            if(!getRowData(manageEventTable, eventModel, 2).equals(qp.getAllRecord("SELECT * FROM `temp_student_record`")[2][3])){
+                JOptionPane.showMessageDialog(null, "Cannot overwrite event with different dates","Error",JOptionPane.ERROR_MESSAGE);
+                qp.executeUpdate("DELETE FROM `temp_student_info`;");
+                return false;
+            }
             JOptionPane.showMessageDialog(null,"File Import Success");
     
             return true;
@@ -506,18 +515,20 @@ public void cancelLCDMessage() {
     
     public boolean overwritetEventCSV(String[][] allRecords){
         try{
-            String eventName=allRecords[0][2];
+            
+            String eventName=getRowData(manageEventTable, eventModel, 1);
+            
             for (int j = 0; j < allRecords.length; j++) {
                 String[] data = allRecords[j];
                    // System.out.println("array is "+Arrays.toString(data));
                     //System.out.println(data[7]);
-                        
+                    
                         if( qp.getSpecificField("Select `student_id` from `student_record` WHERE `student_id`="+data[0]+" AND `event` = '"+data[2]+"'")!=null){
                             //System.out.println("edit");
                             createtStatment("UPDATE `student_record` SET `student_id`=?,`rfid_id`=?,`event`=?,`date`=?,`time_in`=?,`time_out`=?,`status`=?,`status_timeout`=? WHERE `student_id`="+data[0]+" AND `event` = '"+data[2]+"'");
                         }
                         else{
-                            createtStatment("INSERT IGNORE into `student_record` values (?,?,?,?,?,?,?,?)");
+                            createtStatment("INSERT  INTO `student_record`(`student_id`, `rfid_id`, `event`, `date`, `time_in`, `time_out`, `status`, `status_timeout`) VALUES (?,?,?,?,?,?,?,?);");
                         }
                         
                        // System.out.println("legnth is"+data.length);
@@ -537,14 +548,12 @@ public void cancelLCDMessage() {
                                 } 
                             }
                         // Execute the insert statement
-                        statement.addBatch();
-                        if ((j + 1) % 100 == 0 || j == allRecords.length - 1) {
-                            statement.executeBatch(); // Execute the batch operation
-                        }
-                        
-                        
+//                        System.out.println("astaement "+statement.toString());
+                        statement.executeUpdate();
+
 
             }
+
             JOptionPane.showMessageDialog(null,"File Import Success");
             return true;
         }
@@ -667,6 +676,7 @@ public void cancelLCDMessage() {
     }
     
     public void displayRecentScans(){
+        
         addOddRowColorRenderer(recentRecordsTable);
         System.out.println("Displaying Recent Scans");
        // "ID No.","Last Name","First Name","M.I.","Type","Time","Status"};
@@ -842,6 +852,20 @@ public void cancelLCDMessage() {
             JTableHeader tableHeader = viewCSVTable.getTableHeader();
             tableHeader.setPreferredSize(new Dimension(tableHeader.getWidth(), 32));
         }
+        else if (csvType.equals("view")){
+            String query = "SELECT `student_info`.`student_id`, `student_info`.`last_name`, `student_info`.`first_name`, IFNULL(LEFT(`middle_name`, 1), '') AS `first_letter1`,`student_info`.`course`,"
+                + "CASE WHEN time_out IS NULL THEN 'Time-in' ELSE 'Time-out' END AS time_status, TIME_FORMAT(`student_record`.`time_in`, '%h:%i %p') AS formatted_time_in,"
+                + "CASE WHEN time_out IS NULL THEN `student_record`.`status` ELSE `student_record`.`status_timeout` END AS student_status FROM `student_record`, `student_info` WHERE `student_record`.`student_id` = `student_info`.`student_id` "
+                + "AND `student_record`.`event` = '"+getRowData(manageEventTable, eventModel, 1)+"' AND `student_record`.`date` = '"+getRowData(manageEventTable, eventModel, 2)+"' "
+                + "AND `course` LIKE '%"+((!courseSortCB1.getSelectedItem().toString().equals("All Courses"))?courseSortCB1.getSelectedItem().toString():"")+"%' "
+                + "AND `year` LIKE '%"+((!yearSortCB1.getSelectedItem().toString().equals("Year"))?yearSortCB1.getSelectedItem().toString():"")+"%' "
+                + " "+inOut+" AND CONCAT_WS(`student_info`.`student_id`,  `student_info`.`last_name`, `student_info`.`first_name`, `student_info`.`course`,"
+                + "`student_info`.`age`,`student_info`.`gender`,`student_info`.`address`,`student_info`.`contact_number`,`student_info`.`status`) LIKE '%"+search1.getText()+"%' ORDER BY time_in DESC, time_out DESC;";
+            viewCSVRow = qp.getAllRecord(query);
+            viewCSVModel = new DefaultTableModel(viewCSVRow, tablecol);
+            viewCSVTable.setModel(viewCSVModel);
+            System.out.println("view "+query);
+        }
         else{
             String query="Select * from `temp_student_info`";
             viewCSVRow = qp.getAllRecord(query);
@@ -948,6 +972,7 @@ public void cancelLCDMessage() {
                     scanType.add("Time-in");
                     query1 = "INSERT IGNORE into `student_record` (`student_id`,`rfid_id`,`event`,`date`,`time_in`,`time_out`,`status`) VALUES "
                            + "('"+studentId+"','"+rfidId+"','"+rawEvent+"','"+date+"',STR_TO_DATE('"+time+"', '%h:%i %p'),NULL,'"+status+"')"; 
+                    System.out.println(query1);
                 }
       
             }
@@ -1414,6 +1439,7 @@ public void cancelLCDMessage() {
         clearEvent = new javax.swing.JButton();
         exportEventCSV = new javax.swing.JButton();
         overWriteEvent = new javax.swing.JButton();
+        viewEvent = new javax.swing.JButton();
         jPanel6 = new javax.swing.JPanel();
         searchEvent = new javax.swing.JTextField();
         jScrollPane4 = new javax.swing.JScrollPane();
@@ -1433,6 +1459,10 @@ public void cancelLCDMessage() {
         approveAllRow = new javax.swing.JButton();
         declineAllRow = new javax.swing.JButton();
         declineRow = new javax.swing.JButton();
+        courseSortCB1 = new javax.swing.JComboBox<>();
+        yearSortCB1 = new javax.swing.JComboBox<>();
+        search1 = new javax.swing.JTextField();
+        inOutCB1 = new javax.swing.JComboBox<>();
         settingsFrame = new javax.swing.JFrame();
         tabPanels = new javax.swing.JTabbedPane();
         jPanel7 = new javax.swing.JPanel();
@@ -1451,12 +1481,12 @@ public void cancelLCDMessage() {
         loadingDialogFrame = new javax.swing.JFrame();
         progressBars = new javax.swing.JProgressBar();
         progressLbl = new javax.swing.JLabel();
+        jFrame1 = new javax.swing.JFrame();
         mainPanel = new javax.swing.JPanel();
         ribbonPanel = new javax.swing.JPanel();
         addEventBtn = new javax.swing.JButton();
         recentEventsBtn = new javax.swing.JButton();
         manageStudentsBtn = new javax.swing.JButton();
-        classScheduleBtn = new javax.swing.JButton();
         settingsBtn = new javax.swing.JButton();
         recordsPanel = new javax.swing.JPanel();
         eventLabel = new javax.swing.JLabel();
@@ -2564,6 +2594,21 @@ public void cancelLCDMessage() {
             }
         });
 
+        viewEvent.setFont(new java.awt.Font("Tahoma", 0, 8)); // NOI18N
+        viewEvent.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_view_40px.png"))); // NOI18N
+        viewEvent.setText("View Event");
+        viewEvent.setToolTipText("Resume Event");
+        viewEvent.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        viewEvent.setEnabled(false);
+        viewEvent.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        viewEvent.setMargin(new java.awt.Insets(2, 2, 2, 2));
+        viewEvent.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        viewEvent.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                viewEventActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout jPanel5Layout = new javax.swing.GroupLayout(jPanel5);
         jPanel5.setLayout(jPanel5Layout);
         jPanel5Layout.setHorizontalGroup(
@@ -2572,7 +2617,9 @@ public void cancelLCDMessage() {
                 .addContainerGap()
                 .addComponent(addEventBtn1, javax.swing.GroupLayout.PREFERRED_SIZE, 62, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(overWriteEvent)
+                .addComponent(viewEvent, javax.swing.GroupLayout.PREFERRED_SIZE, 55, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(overWriteEvent, javax.swing.GroupLayout.PREFERRED_SIZE, 57, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(importEventCSVBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 62, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -2592,6 +2639,7 @@ public void cancelLCDMessage() {
             .addGroup(jPanel5Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(viewEvent)
                     .addComponent(overWriteEvent)
                     .addComponent(exportEventCSV)
                     .addComponent(clearEvent)
@@ -2651,7 +2699,7 @@ public void cancelLCDMessage() {
         jPanel6Layout.setHorizontalGroup(
             jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel6Layout.createSequentialGroup()
-                .addContainerGap(12, Short.MAX_VALUE)
+                .addContainerGap(30, Short.MAX_VALUE)
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 931, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(jPanel6Layout.createSequentialGroup()
@@ -2817,29 +2865,74 @@ public void cancelLCDMessage() {
             }
         });
 
+        courseSortCB1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "All Courses", "BSCS", "BSIT-Elect", "BSIT-FPST", "BSF", "BEEd", "BSED- English", "BSED- Math", "BSM" }));
+        courseSortCB1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                courseSortCB1ActionPerformed(evt);
+            }
+        });
+
+        yearSortCB1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Year", "1", "2", "3", "4" }));
+        yearSortCB1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                yearSortCB1ActionPerformed(evt);
+            }
+        });
+
+        search1.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                search1KeyReleased(evt);
+            }
+        });
+
+        inOutCB1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "In/Out", "Time-in", "Time-out" }));
+        inOutCB1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                inOutCB1ActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout checkCSVLayout = new javax.swing.GroupLayout(checkCSV.getContentPane());
         checkCSV.getContentPane().setLayout(checkCSVLayout);
         checkCSVLayout.setHorizontalGroup(
             checkCSVLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(checkCSVLayout.createSequentialGroup()
                 .addGap(14, 14, 14)
-                .addGroup(checkCSVLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                    .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 930, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGroup(checkCSVLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(checkCSVLayout.createSequentialGroup()
-                        .addComponent(declineAllRow, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, 18)
-                        .addComponent(declineRow, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(approveAllRow, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, 18)
-                        .addComponent(approve, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addComponent(inOutCB1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(courseSortCB1, javax.swing.GroupLayout.PREFERRED_SIZE, 99, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(yearSortCB1, javax.swing.GroupLayout.PREFERRED_SIZE, 62, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(search1, javax.swing.GroupLayout.PREFERRED_SIZE, 149, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(checkCSVLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                        .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 930, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGroup(checkCSVLayout.createSequentialGroup()
+                            .addComponent(declineAllRow, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addGap(18, 18, 18)
+                            .addComponent(declineRow, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(approveAllRow, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addGap(18, 18, 18)
+                            .addComponent(approve, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE))))
                 .addContainerGap(15, Short.MAX_VALUE))
         );
         checkCSVLayout.setVerticalGroup(
             checkCSVLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(checkCSVLayout.createSequentialGroup()
-                .addGap(18, 18, 18)
-                .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 286, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(7, 7, 7)
+                .addGroup(checkCSVLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(checkCSVLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(search1, javax.swing.GroupLayout.PREFERRED_SIZE, 25, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(yearSortCB1, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(courseSortCB1, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(checkCSVLayout.createSequentialGroup()
+                        .addGap(2, 2, 2)
+                        .addComponent(inOutCB1, javax.swing.GroupLayout.PREFERRED_SIZE, 24, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 259, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(checkCSVLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(approve)
@@ -3016,6 +3109,17 @@ public void cancelLCDMessage() {
                 .addGap(16, 16, 16))
         );
 
+        javax.swing.GroupLayout jFrame1Layout = new javax.swing.GroupLayout(jFrame1.getContentPane());
+        jFrame1.getContentPane().setLayout(jFrame1Layout);
+        jFrame1Layout.setHorizontalGroup(
+            jFrame1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 400, Short.MAX_VALUE)
+        );
+        jFrame1Layout.setVerticalGroup(
+            jFrame1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 300, Short.MAX_VALUE)
+        );
+
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setMinimumSize(new java.awt.Dimension(1033, 663));
         setSize(new java.awt.Dimension(1033, 663));
@@ -3069,15 +3173,6 @@ public void cancelLCDMessage() {
             }
         });
 
-        classScheduleBtn.setFont(new java.awt.Font("Tahoma", 0, 8)); // NOI18N
-        classScheduleBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_classroom_50px.png"))); // NOI18N
-        classScheduleBtn.setText("Class Schedules");
-        classScheduleBtn.setToolTipText("View Class Schedules");
-        classScheduleBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        classScheduleBtn.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        classScheduleBtn.setMargin(new java.awt.Insets(2, 0, 2, 0));
-        classScheduleBtn.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-
         settingsBtn.setFont(new java.awt.Font("Tahoma", 0, 8)); // NOI18N
         settingsBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_settings_50px.png"))); // NOI18N
         settingsBtn.setText("Settings");
@@ -3104,8 +3199,6 @@ public void cancelLCDMessage() {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(manageStudentsBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 68, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(classScheduleBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 68, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(settingsBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 68, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
@@ -3117,7 +3210,6 @@ public void cancelLCDMessage() {
                     .addComponent(recentEventsBtn, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(addEventBtn, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(manageStudentsBtn, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(classScheduleBtn, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(settingsBtn, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
@@ -3659,6 +3751,7 @@ public void cancelLCDMessage() {
     private void manageEventTableMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_manageEventTableMouseClicked
         // TODO add your handling code here:
         exportEventCSV.setEnabled(true);
+        viewEvent.setEnabled(true);
         updateEventBtn.setEnabled(true);
         clearEvent.setEnabled(true);
         deleteEventBtn.setEnabled(true);
@@ -3901,16 +3994,25 @@ public void cancelLCDMessage() {
     private void searchTFKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_searchTFKeyReleased
         // TODO add your handling code here:
         displayRecentScans();
+        if(csvType.equals("view")){
+            displayCSVTable("view");
+        }
     }//GEN-LAST:event_searchTFKeyReleased
 
     private void courseSortCBActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_courseSortCBActionPerformed
         // TODO add your handling code here:
         displayRecentScans();
+        if(csvType.equals("view")){
+            displayCSVTable("view");
+        }
     }//GEN-LAST:event_courseSortCBActionPerformed
 
     private void yearSortCBActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_yearSortCBActionPerformed
         // TODO add your handling code here:
         displayRecentScans();
+        if(csvType.equals("view")){
+            displayCSVTable("view");
+        }
     }//GEN-LAST:event_yearSortCBActionPerformed
 
     private void courseSortStudentCBActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_courseSortStudentCBActionPerformed
@@ -4020,10 +4122,8 @@ public void cancelLCDMessage() {
         else if (inOutCB.getSelectedIndex()==2){
             inOut="AND `time_out` IS NOT NULL";
         }
-        displayRecentScans();
-        
-        
-        
+             displayRecentScans();
+
     }//GEN-LAST:event_inOutCBActionPerformed
 
     private void exportCSVActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exportCSVActionPerformed
@@ -4102,8 +4202,9 @@ public void cancelLCDMessage() {
                     displayManageStudentTable();
                     resetMainFrame();
                 }
-            }else if(uploadCSV.getName().equals("event")){
-                int confirm = JOptionPane.showConfirmDialog(null, "Confirm approving all rows?\nCSV File: "+csvName+"\nto Overwrite to Event: "+getRowData(manageEventTable, eventModel, 2), "Confirm",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE);
+            }else if(uploadCSV.getName().equals("event") || uploadCSV.getName().equals("overwrite")){
+                System.out.println(csvFileName);
+                int confirm = JOptionPane.showConfirmDialog(null, "Confirm approving all rows?\nCSV File: "+csvFileName+"\nto Overwrite to Event: "+getRowData(manageEventTable, eventModel, 2), "Confirm",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE);
                 if(confirm == JOptionPane.YES_OPTION){
                     allRecords = qp.getAllRecord("SELECT * FROM `temp_student_record`");
                      if(overwritetEventCSV(allRecords)){
@@ -4232,6 +4333,46 @@ public void cancelLCDMessage() {
        
     }//GEN-LAST:event_hostCustomMouseClicked
 
+    private void courseSortCB1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_courseSortCB1ActionPerformed
+        // TODO add your handling code here:
+        courseSortCBActionPerformed(evt);
+    }//GEN-LAST:event_courseSortCB1ActionPerformed
+
+    private void yearSortCB1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_yearSortCB1ActionPerformed
+        // TODO add your handling code here:
+        yearSortCBActionPerformed(evt);
+    }//GEN-LAST:event_yearSortCB1ActionPerformed
+
+    private void search1KeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_search1KeyReleased
+        // TODO add your handling code here:
+        searchTFKeyReleased(evt);
+    }//GEN-LAST:event_search1KeyReleased
+
+    private void viewEventActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_viewEventActionPerformed
+        // TODO add your handling code here:
+        csvType="view";
+        displayCSVTable(csvType);
+        approve.setVisible(false);
+        approveAllRow.setVisible(false);
+        declineRow.setVisible(false);
+        declineAllRow.setVisible(customUser);
+        checkCSV.setVisible(true);
+    }//GEN-LAST:event_viewEventActionPerformed
+
+    private void inOutCB1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_inOutCB1ActionPerformed
+        // TODO add your handling code here:
+        if(inOutCB1.getSelectedIndex()==0){
+            inOut="";
+        }
+        else if (inOutCB1.getSelectedIndex()==1){
+            inOut="AND `time_out` IS NULL";
+        }
+        else if (inOutCB1.getSelectedIndex()==2){
+            inOut="AND `time_out` IS NOT NULL";
+        }
+             displayCSVTable("view");
+    }//GEN-LAST:event_inOutCB1ActionPerformed
+
     /**
      * @param args the command line arguments
      */
@@ -4300,11 +4441,11 @@ public void cancelLCDMessage() {
     private javax.swing.JCheckBox bsm;
     private javax.swing.JButton cancelCSV;
     private javax.swing.JFrame checkCSV;
-    private javax.swing.JButton classScheduleBtn;
     private javax.swing.JButton clearEvent;
     private javax.swing.JTextField contactNumTF;
     private javax.swing.JComboBox<String> courseCB;
     private javax.swing.JComboBox<String> courseSortCB;
+    private javax.swing.JComboBox<String> courseSortCB1;
     private javax.swing.JComboBox<String> courseSortEventCB;
     private javax.swing.JComboBox<String> courseSortStudentCB;
     private javax.swing.JFrame csvFrame;
@@ -4348,8 +4489,10 @@ public void cancelLCDMessage() {
     private javax.swing.JButton importEventCSVBtn;
     private javax.swing.JButton importStudentCSV;
     private javax.swing.JComboBox<String> inOutCB;
+    private javax.swing.JComboBox<String> inOutCB1;
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
+    private javax.swing.JFrame jFrame1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
@@ -4417,6 +4560,7 @@ public void cancelLCDMessage() {
     private javax.swing.JPanel ribbonPanel;
     private javax.swing.JLabel rowCount;
     private javax.swing.JButton saveHeader;
+    private javax.swing.JTextField search1;
     private javax.swing.JTextField searchEvent;
     private javax.swing.JTextField searchStudent;
     private javax.swing.JTextField searchTF;
@@ -4443,8 +4587,10 @@ public void cancelLCDMessage() {
     private javax.swing.JButton updateStudentBtn;
     private javax.swing.JButton uploadCSV;
     private javax.swing.JTable viewCSVTable;
+    private javax.swing.JButton viewEvent;
     private javax.swing.JComboBox<String> yearCB;
     private javax.swing.JComboBox<String> yearSortCB;
+    private javax.swing.JComboBox<String> yearSortCB1;
     private javax.swing.JComboBox<String> yearSortEventCB;
     private javax.swing.JComboBox<String> yearSortStudentCB;
     // End of variables declaration//GEN-END:variables
