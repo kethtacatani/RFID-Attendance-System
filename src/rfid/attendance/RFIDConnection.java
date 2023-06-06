@@ -40,7 +40,8 @@ public class RFIDConnection {
         arduinoPort = findArduinoPort(allAvailableComPorts);
         if (arduinoPort != null) {
             System.out.println("Arduino is connected on port: " + arduinoPort.getSystemPortName());
-            home.arduinoStatus.setText("<html><font color='green'>RFID Scanner: Connected</font></html>");
+            home.arduinoStatus.setText("<html>RFID Scanner: <font color='green'>Connected</font></html>");
+
             
             
             
@@ -79,8 +80,7 @@ public class RFIDConnection {
         } else {
             //JOptionPane.showMessageDialog(null, "No RFID Scanner found!");
             System.out.println("Arduino is not connected. Please check the connection.");
-//            home.arduinoStatus.setText("<html>RFID Scanner: <font color='red'>Disconnected</font></html>");
-            home.arduinoStatus.setText("<html>RFID Scanner: <font color='green'>Connected</font></html>");
+            home.arduinoStatus.setText("<html>RFID Scanner: <font color='red'>Disconnected</font></html>");
 
         }
     }
