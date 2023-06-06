@@ -33,7 +33,7 @@ import javax.swing.JTextField;
 
 
 public class QueryProcessor {
-    boolean isConnected;
+    public static boolean isConnected;
         public Statement stmt;
     ResultSet rs; //represents the result set of a database query .  refers to the row and column data contained in a ResultSet object
     public Connection con;
@@ -56,6 +56,7 @@ public class QueryProcessor {
         {
                 System.out.println(username+"asd"+host);
               //  saveData();
+              getIpV4();
                 if(!customUser){
                     loadData();
                     System.out.println("cusomte");
@@ -125,7 +126,7 @@ public class QueryProcessor {
         }
     }
      
-    private void connectToDatabase() throws SQLException{
+    public void connectToDatabase() throws SQLException{
         
         System.out.println("user "+username);
          System.out.println("pass "+password);
@@ -141,6 +142,7 @@ public class QueryProcessor {
                     saveData();
           }else{
             JPanel panel = new JPanel();
+                
                 JTextField usernameField = new JTextField(10);
                 JPasswordField passwordField = new JPasswordField(10);
                 panel.add(new JLabel("Username:"));
@@ -165,11 +167,31 @@ public class QueryProcessor {
 //                    home.password=JOpassword;
                 } else {
                     System.out.println("Login canceled.");
-                  
+                    
                 }
         }
     }
-
+    
+    public void getIpV4(){
+        try {
+            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+            while (networkInterfaces.hasMoreElements()) {
+                NetworkInterface networkInterface = networkInterfaces.nextElement();
+                Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
+                while (inetAddresses.hasMoreElements()) {
+                    InetAddress inetAddress = inetAddresses.nextElement();
+                    if (!inetAddress.isLoopbackAddress() && inetAddress.getAddress().length == 4) {
+                        System.out.println("IPv4 Address: " + inetAddress.getHostAddress());
+                        if(!ipv4List.contains(inetAddress.getHostAddress())){
+                            ipv4List.add(inetAddress.getHostAddress());
+                        }
+                    }
+                }
+            }
+        } catch (SocketException e) {
+            e.printStackTrace();
+        }
+    }
     
         
     public String[][] getAllRecord(String query)

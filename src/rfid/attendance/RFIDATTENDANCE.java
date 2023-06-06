@@ -19,7 +19,7 @@ public class RFIDATTENDANCE {
     public static void main(String[] args) {
 
         
-        
+        java.net.URL url = ClassLoader.getSystemResource("com/xyz/resources/camera.png");
         QueryProcessor qp = new QueryProcessor();
         RFIDConnection rfid = new RFIDConnection();
         rfid.main(args);

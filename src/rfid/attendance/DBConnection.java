@@ -18,6 +18,7 @@ import static rfid.attendance.QueryProcessor.host;
 import static rfid.attendance.QueryProcessor.database;
 import static rfid.attendance.QueryProcessor.username;
 import static rfid.attendance.QueryProcessor.password;
+import static rfid.attendance.QueryProcessor.isConnected;
 
 
 public class DBConnection {
@@ -35,14 +36,12 @@ public class DBConnection {
           connect = DriverManager.getConnection("jdbc:mysql://"+host+"/"+database+"", ""+username+"", ""+password+"");
        //JOptionPane.showMessageDialog(null, "Succesfully Connected! "+database);
        databaseConnection ="Connected | MySQL";
-       
        return true;
        
       }catch(Exception e)
      {
         // JOptionPane.showMessageDialog(null,"-No connection from database. \nPlease read the instructions from ReadMe file.","Connection Failed",JOptionPane.ERROR_MESSAGE);
          e.printStackTrace();
-         
         
          return false;
           
