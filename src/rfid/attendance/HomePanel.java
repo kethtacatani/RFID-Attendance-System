@@ -222,7 +222,8 @@ public class HomePanel extends javax.swing.JFrame {
     public void preProcess(){
         //System.out.println("Pre-Process");
         String[][] records = qp.getAllRecord("SELECT 1 FROM `events` WHERE `recent_event` =  'recentEvent'");
-        if(records!=null){
+        waitingTime.setText(qp.getSpecificField("Select `c2` from `misctable` where `name`='waitingTime'"));
+       if(records!=null){
             String query1 ="Select `event_name`,`date`,`students_involved`, `year`,`time_in_range`,`time_out_range` from `events` WHERE `recent_event`='recentEvent'";
             //System.out.println("query is "+query1);
             String[] recentInfo = qp.getSpecificRow(query1);
@@ -1003,7 +1004,7 @@ public void cancelLCDMessage() {
                     
                     else{
                         //if time-out is not null
-                        if(null!=timeOutStart && timedifference(time, scanTime.get(scannedRFID.indexOf(rfidId))) > 1){
+                        if(null!=timeOutStart && timedifference(time, scanTime.get(scannedRFID.indexOf(rfidId))) > Integer.parseInt(waitingTime.getText())){
                             if(timedifference(time, timeOutStart) >= 0){
                                 status="On-Time";
                             }
@@ -1015,7 +1016,7 @@ public void cancelLCDMessage() {
                             query1 = "UPDATE `student_record` SET `time_out` = STR_TO_DATE('"+time+"', '%h:%i %p'), `status_timeout`='"+status+"' WHERE rfid_id ='"+rfidId+"' AND `event`= '"+rawEvent+"'";
                          }
                         //if time out is null
-                        else if(timedifference(time, scanTime.get(scannedRFID.indexOf(rfidId))) > 1){
+                        else if(timedifference(time, scanTime.get(scannedRFID.indexOf(rfidId))) > Integer.parseInt(waitingTime.getText())){
                             
                             scanType.set(scannedRFID.indexOf(rfidId),"Time-out");
                             query1 = "UPDATE `student_record` SET `time_out` = STR_TO_DATE('"+time+"', '%h:%i %p') WHERE rfid_id ='"+rfidId+"' AND `event`= '"+rawEvent+"'";
@@ -1361,6 +1362,11 @@ public void cancelLCDMessage() {
         inOutCB1 = new javax.swing.JComboBox<>();
         settingsFrame = new javax.swing.JFrame();
         tabPanels = new javax.swing.JTabbedPane();
+        jPanel7 = new javax.swing.JPanel();
+        jLabel31 = new javax.swing.JLabel();
+        waitingTime = new javax.swing.JTextField();
+        jLabel32 = new javax.swing.JLabel();
+        saveGeneralBtn = new javax.swing.JButton();
         jPanel8 = new javax.swing.JPanel();
         jLabel1 = new javax.swing.JLabel();
         hostCB = new javax.swing.JComboBox<>();
@@ -1368,7 +1374,7 @@ public void cancelLCDMessage() {
         hostConnection = new javax.swing.JLabel();
         hostCustom = new javax.swing.JTextField();
         jLabel29 = new javax.swing.JLabel();
-        jButton1 = new javax.swing.JButton();
+        saveConnectionBtn = new javax.swing.JButton();
         jLabel28 = new javax.swing.JLabel();
         jLabel30 = new javax.swing.JLabel();
         hostUsername = new javax.swing.JTextField();
@@ -1968,6 +1974,68 @@ public void cancelLCDMessage() {
         settingsFrame.setTitle("Settings");
         settingsFrame.setMinimumSize(new java.awt.Dimension(560, 381));
 
+        jLabel31.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel31.setText("Timeout Waiting Time:");
+
+        waitingTime.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        waitingTime.setText("1");
+        waitingTime.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                waitingTimeActionPerformed(evt);
+            }
+        });
+        waitingTime.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                waitingTimeKeyReleased(evt);
+            }
+            public void keyTyped(java.awt.event.KeyEvent evt) {
+                waitingTimeKeyTyped(evt);
+            }
+        });
+
+        jLabel32.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel32.setText("minute/s");
+
+        saveGeneralBtn.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        saveGeneralBtn.setText("Save");
+        saveGeneralBtn.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                saveGeneralBtnActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
+        jPanel7.setLayout(jPanel7Layout);
+        jPanel7Layout.setHorizontalGroup(
+            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel7Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jLabel31, javax.swing.GroupLayout.PREFERRED_SIZE, 152, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(waitingTime, javax.swing.GroupLayout.PREFERRED_SIZE, 71, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel32, javax.swing.GroupLayout.PREFERRED_SIZE, 61, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(208, Short.MAX_VALUE))
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel7Layout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(saveGeneralBtn)
+                .addContainerGap())
+        );
+        jPanel7Layout.setVerticalGroup(
+            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel7Layout.createSequentialGroup()
+                .addGap(17, 17, 17)
+                .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel31)
+                    .addComponent(waitingTime, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel32))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 250, Short.MAX_VALUE)
+                .addComponent(saveGeneralBtn)
+                .addGap(17, 17, 17))
+        );
+
+        tabPanels.addTab("General", jPanel7);
+
         jLabel1.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
         jLabel1.setText("Database Connection:");
 
@@ -1988,11 +2056,11 @@ public void cancelLCDMessage() {
         jLabel29.setIcon(new javax.swing.ImageIcon(getClass().getResource("/rfid/attendance/images/icons8_help_15px_1.png"))); // NOI18N
         jLabel29.setToolTipText("Check IpV4 in cmd, type ipconfig and input Ipv4 address here");
 
-        jButton1.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jButton1.setText("Save Connection");
-        jButton1.addActionListener(new java.awt.event.ActionListener() {
+        saveConnectionBtn.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        saveConnectionBtn.setText("Save Connection");
+        saveConnectionBtn.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton1ActionPerformed(evt);
+                saveConnectionBtnActionPerformed(evt);
             }
         });
 
@@ -2012,7 +2080,7 @@ public void cancelLCDMessage() {
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel8Layout.createSequentialGroup()
                         .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(jButton1))
+                        .addComponent(saveConnectionBtn))
                     .addGroup(jPanel8Layout.createSequentialGroup()
                         .addGap(16, 16, 16)
                         .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2063,7 +2131,7 @@ public void cancelLCDMessage() {
                     .addComponent(jLabel28)
                     .addComponent(hostPassword, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 160, Short.MAX_VALUE)
-                .addComponent(jButton1)
+                .addComponent(saveConnectionBtn)
                 .addContainerGap())
         );
 
@@ -2084,7 +2152,7 @@ public void cancelLCDMessage() {
             settingsFrameLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(settingsFrameLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(tabPanels)
+                .addComponent(tabPanels, javax.swing.GroupLayout.DEFAULT_SIZE, 369, Short.MAX_VALUE)
                 .addContainerGap())
         );
 
@@ -4226,7 +4294,7 @@ public void cancelLCDMessage() {
         resetMainFrame();
     }//GEN-LAST:event_jButton2ActionPerformed
 
-    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+    private void saveConnectionBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveConnectionBtnActionPerformed
         // TODO add your handling code here:
         
         
@@ -4248,7 +4316,7 @@ public void cancelLCDMessage() {
         preProcess();
         resetMainFrame();
         
-    }//GEN-LAST:event_jButton1ActionPerformed
+    }//GEN-LAST:event_saveConnectionBtnActionPerformed
 
     private void hostCustomMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_hostCustomMouseClicked
         // TODO add your handling code here:
@@ -4383,6 +4451,29 @@ public void cancelLCDMessage() {
         // TODO add your handling code here:
     }//GEN-LAST:event_eventNameTFActionPerformed
 
+    private void waitingTimeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_waitingTimeActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_waitingTimeActionPerformed
+
+    private void waitingTimeKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_waitingTimeKeyTyped
+        // TODO add your handling code here:
+        if(!Character.isDigit(evt.getKeyChar())){
+            evt.consume();
+        }
+    }//GEN-LAST:event_waitingTimeKeyTyped
+
+    private void waitingTimeKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_waitingTimeKeyReleased
+        // TODO add your handling code here:
+        
+    }//GEN-LAST:event_waitingTimeKeyReleased
+
+    private void saveGeneralBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveGeneralBtnActionPerformed
+            // TODO add your handling code here:
+     if(qp.executeUpdate("UPDATE `misctable` SET `c2`='"+waitingTime.getText()+"' WHERE `name`='waitingTime'")){
+         JOptionPane.showMessageDialog(null, "Successfully Saved");
+     }
+    }//GEN-LAST:event_saveGeneralBtnActionPerformed
+
     /**
      * @param args the command line arguments
      */
@@ -4501,7 +4592,6 @@ public void cancelLCDMessage() {
     private javax.swing.JButton importStudentCSV;
     private javax.swing.JComboBox<String> inOutCB;
     private javax.swing.JComboBox<String> inOutCB1;
-    private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
     private javax.swing.JFrame jFrame4;
     private javax.swing.JLabel jLabel1;
@@ -4528,6 +4618,8 @@ public void cancelLCDMessage() {
     private javax.swing.JLabel jLabel29;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel30;
+    private javax.swing.JLabel jLabel31;
+    private javax.swing.JLabel jLabel32;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
@@ -4540,6 +4632,7 @@ public void cancelLCDMessage() {
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
+    private javax.swing.JPanel jPanel7;
     private javax.swing.JPanel jPanel8;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
@@ -4569,6 +4662,8 @@ public void cancelLCDMessage() {
     private javax.swing.JButton resumeEventBtn;
     private javax.swing.JPanel ribbonPanel;
     private javax.swing.JLabel rowCount;
+    private javax.swing.JButton saveConnectionBtn;
+    private javax.swing.JButton saveGeneralBtn;
     private javax.swing.JButton saveHeader;
     private javax.swing.JTextField search1;
     private javax.swing.JTextField searchEvent;
@@ -4597,6 +4692,7 @@ public void cancelLCDMessage() {
     private javax.swing.JButton uploadCSV;
     private javax.swing.JTable viewCSVTable;
     private javax.swing.JButton viewEvent;
+    private javax.swing.JTextField waitingTime;
     private javax.swing.JComboBox<String> yearCB;
     private javax.swing.JComboBox<String> yearSortCB;
     private javax.swing.JComboBox<String> yearSortCB1;
